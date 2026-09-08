@@ -22,35 +22,81 @@ if PROJECT_ROOT != CWD:
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-PYTHON_FILES = list(PROJECT_ROOT.glob("**/*.py"))
+PYTHON_FILES = sorted(PROJECT_ROOT.glob("**/*.py"))
 
 
 def check_syntax(path: Path) -> bool:
     try:
-        tree = ast.parse(path.read_text(encoding="utf-8"))
+        ast.parse(path.read_text(encoding="utf-8"))
         return True
     except SyntaxError as exc:
         print(f"[SYNTAX ERROR] {path}: {exc}")
         return False
 
 
-def check_imports(path: Path) -> bool:
+def check_external_dependencies(path: Path) -> None:
+    """Informa (sin fallar) de módulos externos que cada archivo importa."""
     try:
-        source = path.read_text(encoding="utf-8")
-        tree = ast.parse(source)
+        tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
                 for alias in node.names:
-                    if alias.name in {"wmi", "winrt"}:
+                    if alias.name.split(".")[0] in {"wmi", "winrt", "pythoncom"}:
                         print(f"[INFO] {path} depende de librería externa: {alias.name}")
             elif isinstance(node, ast.ImportFrom):
                 module = node.module or ""
-                if module.split(".")[0] in {"wmi", "winrt"}:
+                if module.split(".")[0] in {"wmi", "winrt", "pythoncom"}:
                     print(f"[INFO] {path} depende de librería externa: {module}")
-        return True
+    except Exception:
+        pass
+
+
+def check_layer_importability() -> bool:
+    """Verifica que cada capa se pueda importar (WMI/WinRT son opcionales)."""
+    checks = [
+        ("buslens", "paquete raíz"),
+        ("buslens.domain", "capa de dominio"),
+        ("buslens.application", "capa de aplicación"),
+        ("buslens.infrastructure", "capa de infraestructura"),
+        ("buslens.infrastructure.wmi", "cliente WMI"),
+    ]
+    ok = True
+    for module_name, label in checks:
+        try:
+            __import__(module_name)
+            print(f"[OK] {label} importable ({module_name})")
+        except Exception as exc:
+            print(f"[ERROR] no se pudo importar {module_name}: {exc}")
+            ok = False
+
+    try:
+        from buslens.infrastructure.wmi.wmi_client import WmiClient
+        client = WmiClient()
+        print(f"[INFO] WmiClient creado. WMI disponible: {client.available}")
     except Exception as exc:
-        print(f"[IMPORT CHECK ERROR] {path}: {exc}")
-        return False
+        print(f"[WARN] WmiClient no pudo instanciarse: {exc}")
+
+    try:
+        from buslens.domain.models.usb_device import UsbDevice
+        d = UsbDevice(pnp_device_id=r"USB\VID_1234&PID_5678\dev", name="TestDevice")
+        print(f"[OK] UsbDevice parseado: vendor={d.vendor_id}, product={d.product_id}")
+    except Exception as exc:
+        print(f"[ERROR] UsbDevice: {exc}")
+        ok = False
+
+    try:
+        from buslens.application.services.bus_service import BusService
+        from buslens.application.viewmodels.main_viewmodel import MainViewModel
+        svc = BusService()
+        vm = MainViewModel(svc)
+        svc.stop()
+        vm.dispose()
+        print("[OK] BusService + MainViewModel creados y liberados")
+    except Exception as exc:
+        print(f"[ERROR] capa de aplicación: {exc}")
+        ok = False
+
+    return ok
 
 
 def main() -> int:
@@ -60,71 +106,19 @@ def main() -> int:
 
     total = 0
     ok = 0
-    for path in sorted(PYTHON_FILES):
+    for path in PYTHON_FILES:
         total += 1
         if check_syntax(path):
             ok += 1
-        check_imports(path)
+        check_external_dependencies(path)
 
     print(f"Archivos Python: {total} — sintaxis válida: {ok}")
     if ok != total:
         print("ERROR: archivos con sintaxis inválida presentes.")
         return 1
 
-    try:
-        from importlib.machinery import SourceFileLoader
-
-        pkg_dir = PROJECT_ROOT / "BusLens"
-        init = pkg_dir / "__init__.py"
-        if init.exists():
-            loader = SourceFileLoader("buslens", str(init))
-            mod = loader.load_module("buslens")
-            print(f"Paquete buslens importado manualmente: {mod.__version__}")
-            for sub in ("application", "domain", "infrastructure", "presentation"):
-                sub_init = pkg_dir / sub / "__init__.py"
-                if sub_init.exists():
-                    sub_loader = SourceFileLoader(f"buslens.{sub}", str(sub_init))
-                    sub_mod = sub_loader.load_module(f"buslens.{sub}")
-                    print(f"  subpaquete {sub}: {getattr(sub_mod, '__version__', 'ok')}")
-        else:
-            print("[ERROR] no existe BusLens/__init__.py")
-            return 1
-    except Exception as exc:
-        print(f"[ERROR] importación de paquetes: {exc}")
-        return 1
-
-    print("[OK] paquetes raiz disponibles")
-
-    try:
-        from importlib.machinery import SourceFileLoader
-
-        def _load(pkg: str, subpath: str):
-            init = PROJECT_ROOT / "BusLens" / subpath / "__init__.py"
-            if not init.exists():
-                raise FileNotFoundError(str(init))
-            return SourceFileLoader(pkg, str(init)).load_module(pkg)
-
-        _ = _load("buslens.infrastructure.wmi", "infrastructure/wmi")
-        from buslens.infrastructure.wmi.wmi_client import WmiClient
-        client = WmiClient()
-        print(f"WmiClient creado. Disponible: {client.available}")
-
-        _ = _load("buslens.domain.models", "domain/models")
-        from buslens.domain.models.usb_device import UsbDevice
-        d = UsbDevice(pnp_device_id=r"USB\VID_1234&PID_5678\dev", name="TestDevice")
-        print(f"UsbDevice parseado: vendor={d.vendor_id}, product={d.product_id}, name={d.name}")
-
-        _ = _load("buslens.application.services", "application/services")
-        from buslens.application.services.bus_service import BusService
-        svc = BusService()
-        print("BusService creado correctamente")
-
-        _ = _load("buslens.application.viewmodels", "application/viewmodels")
-        from buslens.application.viewmodels.main_viewmodel import MainViewModel
-        vm = MainViewModel(BusService())
-        print("MainViewModel creado correctamente")
-    except Exception as exc:
-        print(f"[ERROR] importación de capas: {exc}")
+    if not check_layer_importability():
+        print("[ERROR] importabilidad de capas falló.")
         return 1
 
     print("Síntesis: estructura y capas válidas.")

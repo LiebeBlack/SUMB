@@ -2,10 +2,15 @@
 # Clean Architecture / WinUI 3 via PyWinRT / WMI
 #
 # Nota importante:
-#   winrt-Windows es instalable solo en Windows y requiere un entorno compatible con
-#   las APIs de Windows.UI.Xaml. En hosts sin WinRT/WMI esta app arranca sin UI
-#   (solo logging) y sale con código 1 sin excepción fatal.
+#   - winrt-windows.ui.xaml[all] es la proyección PyWinRT del SDK de Windows
+#     (paquetes segmentados por namespace; [all] instala las dependencias
+#     recursivas). Solo instalable en Windows (wheels nativos).
+#   - pywin32 y wmi también son solo Windows; los markers de plataforma
+#     permiten que el CI de Linux audite sintaxis y tests sin ellos.
+#
+#   En hosts sin WinRT/WMI esta app arranca sin UI (solo logging) y sale con
+#   código 1 sin excepción fatal.
 
-wmi>=1.5.0
-pywin32>=306
-winrt-Windows>=10.0.22621
+wmi>=1.5.0; sys_platform == 'win32'
+pywin32>=306; sys_platform == 'win32'
+winrt-windows.ui.xaml[all]>=1.0.0; sys_platform == 'win32'

@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-init = ROOT / "BusLens" / "__init__.py"
+init = ROOT / "buslens" / "__init__.py"
 loader = SourceFileLoader("buslens", str(init))
 loader.load_module("buslens")
 

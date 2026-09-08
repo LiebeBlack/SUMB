@@ -28,6 +28,12 @@ env.bak/
 .DS_Store
 Thumbs.db
 
+# Build / empaquetado
+build/
+dist/
+*.spec
+installer/output/
+
 # Logs y debugging
 *.log
 *.tmp

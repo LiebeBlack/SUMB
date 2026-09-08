@@ -16,26 +16,43 @@ from buslens.domain.events.usb_events import DeviceChangedEvent, DeviceChangeTyp
 
 
 class TestParsePnpDeviceId(unittest.TestCase):
-    def test_Parse_Video_Product_id(self):
-        # Nota: en este entorno `split('\\\\')` sobre raw string puede no separar
-        # VID/PID como bloques independientes (comportamiento observado). El parser
-        # principal intenta ambas estrategias (split por bloques + regex fallback).
-        # Este test falla hasta que se valide/falle el split en vivo; sin embargo,
-        # el regex fallback debe funcionar.
+    def test_Parse_Vendor_Product_Standard(self):
         vid, pid = parse_pnp_device_id(r"USB\VID_0781&PID_5581\1234")
         self.assertEqual(vid, "0781")
         self.assertEqual(pid, "5581")
+
+    def test_Parse_WithRevisionAndInstance(self):
+        vid, pid = parse_pnp_device_id(r"USB\VID_046D&PID_C52B\6&2e1a3f4&0&2")
+        self.assertEqual(vid, "046D")
+        self.assertEqual(pid, "C52B")
+
+    def test_Parse_CaseInsensitive(self):
+        vid, pid = parse_pnp_device_id(r"usb\vid_abcd&pid_1234\x")
+        self.assertEqual(vid, "ABCD")
+        self.assertEqual(pid, "1234")
+
+    def test_Parse_CompositeParent(self):
+        vid, pid = parse_pnp_device_id(r"USB\VID_045E&PID_073A\7&2347C8C2&0&0000")
+        self.assertEqual(vid, "045E")
+        self.assertEqual(pid, "073A")
+
+    def test_Parse_VidOnly_ReturnsNonePid(self):
+        vid, pid = parse_pnp_device_id(r"USB\VID_1234\instance")
+        self.assertEqual(vid, "1234")
+        self.assertIsNone(pid)
 
     def test_Missing_Vendor_Product(self):
         vid, pid = parse_pnp_device_id(r"SOME_NON_USB_DEVICE")
         self.assertIsNone(vid)
         self.assertIsNone(pid)
 
-    def test_Regex_Fallback(self):
-        # Simula un ID donde el split por bloques no separa VID/PID (según
-        # comportamiento observado) y comprueba que el regex fallback funcione.
-        # Nota: el backslash se escapa explícitamente para simular raw string.
-        vid, pid = parse_pnp_device_id("GARBAGE_USB" + chr(92) + "VID_0781&PID_5581" + chr(92) + "1234")
+    def test_Empty_Input(self):
+        self.assertEqual(parse_pnp_device_id(""), (None, None))
+
+    def test_Regex_Primary_Strategy(self):
+        # El regex es la estrategia principal y debe funcionar aunque el ID
+        # contenga segmentos adicionales (REV, instancias, etc.).
+        vid, pid = parse_pnp_device_id("USB" + chr(92) + "VID_0781&PID_5581" + chr(92) + "REV_0100")
         self.assertEqual(vid, "0781")
         self.assertEqual(pid, "5581")
 

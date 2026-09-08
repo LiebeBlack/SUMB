@@ -1,0 +1,186 @@
+name: CI/CD — Test, Build EXE, Installer y Release
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+
+env:
+  PYTHON_VERSION: "3.11"
+  PYTHON_ARCH: "x64"
+
+jobs:
+  # -------------------------------------------------------------------------
+  # Auditoría + tests unitarios (rápido, corre en push y PR)
+  # -------------------------------------------------------------------------
+  test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python ${{ env.PYTHON_VERSION }} (${{ env.PYTHON_ARCH }})
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          architecture: ${{ env.PYTHON_ARCH }}
+
+      - name: Instalar dependencias
+        run: python -m pip install --upgrade pip && pip install -r requirements.txt
+
+      - name: Auditoría de sintaxis e importabilidad
+        run: python scripts/check_syntax.py
+
+      - name: Tests unitarios
+        run: python -m unittest discover -s tests -v
+
+  # -------------------------------------------------------------------------
+  # Build: PyInstaller + Inno Setup (solo push a main o tags)
+  # -------------------------------------------------------------------------
+  build:
+    name: Build EXE + Installer
+    needs: [test, kernel-driver]
+    if: github.event_name == 'push'
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Descargar driver compilado (si el WDK lo produjo)
+        uses: actions/download-artifact@v4
+        with:
+          name: buslens-kernel-driver
+          path: kernel
+        continue-on-error: true
+
+      - name: Setup Python ${{ env.PYTHON_VERSION }} (${{ env.PYTHON_ARCH }})
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          architecture: ${{ env.PYTHON_ARCH }}
+
+      - name: Instalar dependencias (runtime + build)
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Generar icono
+        run: python scripts/make_icon.py
+
+      - name: Compilar BusLens.exe (PyInstaller onefile)
+        run: python build_exe.py --clean
+
+  # -------------------------------------------------------------------------
+  # Driver del Modo Avanzado (Beta): WDK + MSBuild (best-effort)
+  # -------------------------------------------------------------------------
+  kernel-driver:
+    name: Build Kernel Driver (WDK)
+    needs: test
+    if: github.event_name == 'push'
+    runs-on: windows-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Instalar Windows Driver Kit (WDK)
+        shell: pwsh
+        run: choco install windows-driver-kit --no-progress -y
+
+      - name: Compilar buslens_filter.sys (x64 Release)
+        shell: pwsh
+        run: |
+          & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" `
+            -latest -property installationPath | ForEach-Object {
+              $msbuild = Join-Path $_ "MSBuild\Current\Bin\MSBuild.exe"
+              if (Test-Path $msbuild) {
+                & $msbuild "kernel\buslens_filter.vcxproj" `
+                  /p:Configuration=Release /p:Platform=x64 /m
+              }
+            }
+
+      - name: Subir buslens_filter.sys como artefacto
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: buslens-kernel-driver
+          path: |
+            kernel/x64/Release/buslens_filter.sys
+            kernel/x64/Release/buslens_filter.inf
+          if-no-files-found: warn
+
+      - name: Exponer versión de la app
+        id: version
+        shell: pwsh
+        run: |
+          $v = python -c "import buslens.presentation.winrt.app_config as c; print(c.APP_VERSION)"
+          echo "APP_VERSION=$v" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          echo "Versión detectada: $v"
+
+      - name: Instalar Inno Setup 6 (chocolatey)
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+
+      - name: Compilar instalador (BusLens_Setup_v${{ env.APP_VERSION }}.exe)
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { $iscc = (Get-Command ISCC.exe).Source }
+          & $iscc "installer\buslens_setup.iss" "/DMyAppVersion=$env:APP_VERSION"
+          Get-ChildItem dist
+
+      - name: Verificación de artefactos
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "dist\BusLens.exe")) { throw "Falta dist\BusLens.exe" }
+          if (-not (Test-Path "dist\BusLens_Setup_v$env:APP_VERSION.exe")) { throw "Falta el instalador" }
+          Get-ChildItem dist | Select-Object Name, Length
+
+      - name: Subir artefactos (executable + instalador)
+        uses: actions/upload-artifact@v4
+        with:
+          name: buslens-build
+          path: |
+            dist/BusLens.exe
+            dist/BusLens_Setup_*.exe
+          if-no-files-found: error
+
+  # -------------------------------------------------------------------------
+  # Publicación: solo cuando se empuja un tag v*
+  # -------------------------------------------------------------------------
+  publish:
+    name: Publicar Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Descargar artefactos del build
+        uses: actions/download-artifact@v4
+        with:
+          name: buslens-build
+          path: dist
+
+      - name: Publicar en GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          name: BusLens ${{ github.ref_name }}
+          body: |
+            ## BusLens ${{ github.ref_name }}
+
+            Ejecutable autocontenido y instalador profesional de Windows (x64).
+            - `BusLens.exe` — ejecutable único sin instalación.
+            - `BusLens_Setup_*.exe` — instalador Inno Setup (menú Inicio, escritorio, desinstalación limpia).
+          files: |
+            dist/BusLens.exe
+            dist/BusLens_Setup_*.exe
+          generate_release_notes: true

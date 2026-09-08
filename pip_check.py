@@ -13,7 +13,7 @@ print("sys.path[0]:", sys.path[0])
 
 
 def probe():
-    pkg_dir = root / "BusLens"
+    pkg_dir = root / "buslens"
     init = pkg_dir / "__init__.py"
     print("init existe:", init.exists())
     if not init.exists():
@@ -25,7 +25,7 @@ def probe():
     print("importado manual:", mod)
     print("__version__:", getattr(mod, "__version__", None))
 
-    # Intenta subpaquetes con find_spec + load_module
+    # Intenta subpaquetes
     for sub in ("application", "domain", "infrastructure", "presentation"):
         sub_pkg = f"buslens.{sub}"
         loader2 = SourceFileLoader(sub_pkg, str(pkg_dir / sub / "__init__.py"))

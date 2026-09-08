@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import logging
 import threading
-from typing import Callable, Optional
+from typing import Callable
+
+logger = logging.getLogger("buslens.application.services.dispatcher")
 
 
 class ThreadSafeDispatcher:
@@ -40,13 +43,13 @@ class ThreadSafeDispatcher:
             try:
                 callback()
             except Exception as exc:
-                print(f"[BusLens] dispatcher fallback callback failed: {exc}")
+                logger.warning("dispatcher fallback callback failed: %s", exc)
             return
         for cb in callbacks:
             try:
                 cb(callback)
             except Exception as exc:
-                print(f"[BusLens] dispatcher main invoker fell: {exc}")
+                logger.warning("dispatcher main invoker fell: %s", exc)
 
 
 _global_dispatcher = ThreadSafeDispatcher()

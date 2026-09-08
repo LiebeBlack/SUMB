@@ -1,0 +1,73 @@
+;---------------------------------------------------------------------------
+; buslens_filter.inf — Driver de BusLens (Modo Avanzado / Tier 1)
+;
+; Dos modos de instalación:
+;
+;  A) SERVICIO STANDALONE (por defecto, el que usa la aplicación):
+;     Instala buslens_filter.sys como servicio kernel StartType=demand.
+;     El driver crea el control device \Device\BusLensFilter con el
+;     symbolic link \DosDevices\BusLensFilter (\\.\BusLensFilter).
+;     No toca el stack USB: el adjunto a un dispositivo se hace bajo
+;     demanda del cliente vía IOCTL_BUSLENS_ATTACH.
+;
+;  B) UPPER FILTER DE LA CLASE USB (experimental, descomentar):
+;     Registra el driver como UpperFilters de la clase USB
+;     {36fc9e60-c465-11cf-8056-444553540000}. PnP creará un filter FDO
+;     (EvtDeviceAdd + WdfFdoInitSetFilter) por cada dispositivo USB y el
+;     driver observará URBs de todo el árbol. OJO: un fallo de carga del
+;     filter puede dejar el USB sin servicio hasta reiniciar; úsese solo
+;     en entornos de pruebas con Test-Signing activo.
+;---------------------------------------------------------------------------
+
+[Version]
+Signature   = "$WINDOWS NT$"
+Class       = System
+ClassGuid   = {4d36e97d-e325-11ce-bfc1-08002be10318}
+Provider    = %ProviderName%
+DriverVer   = 09/08/2026,1.0.0.0
+
+[DestinationDirs]
+DefaultDestDir = 12 ; %SystemRoot%\System32\drivers
+
+;---------------------------------------------------------------------------
+; A) Instalación standalone (DefaultInstall) — usada por la aplicación
+;---------------------------------------------------------------------------
+
+[DefaultInstall.NTamd64]
+CopyFiles = BusLens_Filter_CopyFiles
+AddService = buslens_filter, 0x00000002, BusLens_Filter_Service_Inst
+
+[DefaultInstall.NTamd64.Services]
+AddService = buslens_filter, 0x00000002, BusLens_Filter_Service_Inst
+
+[BusLens_Filter_CopyFiles]
+buslens_filter.sys
+
+[BusLens_Filter_Service_Inst]
+DisplayName   = %ServiceName%
+ServiceType   = 1              ; SERVICE_KERNEL_DRIVER
+StartType     = 3              ; SERVICE_DEMAND_START
+ErrorControl  = 1              ; SERVICE_ERROR_NORMAL
+ServiceBinary = %12%\buslens_filter.sys
+
+;---------------------------------------------------------------------------
+; B) Upper Filter de la clase USB (experimental)
+;    Instalación manual elevada (después de copiar el .sys):
+;        RUNDLL32.EXE SETUPAPI.DLL,InstallHinfSection DefaultInstall 132 .\buslens_filter.inf
+;    Luego, para registrar el filter de clase (descomentar la sección
+;    [BusLens_Class_Filter_Install.NTamd64] y ejecutar el DefaultInstall
+;    correspondiente), o añadir la clave a mano con reg.exe.
+;---------------------------------------------------------------------------
+
+[BusLens_Class_Filter_Install.NTamd64]
+CopyFiles = BusLens_Filter_CopyFiles
+AddService = buslens_filter, 0x00000002, BusLens_Filter_Service_Inst
+AddReg = BusLens_Class_Filter_AddReg
+
+[BusLens_Class_Filter_AddReg]
+; UpperFilters de la clase USB {36fc9e60-c465-11cf-8056-444553540000}
+HKLM, SYSTEM\CurrentControlSet\Control\Class\{36fc9e60-c465-11cf-8056-444553540000}, UpperFilters, 0x00010000, buslens_filter
+
+[Strings]
+ProviderName = "BusLens"
+ServiceName  = "BusLens Kernel Filter (Beta)"

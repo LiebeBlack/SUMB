@@ -27,8 +27,15 @@ def _ensure_project_root_on_path() -> None:
 def main() -> None:
     _ensure_project_root_on_path()
 
+    # Modo elevado del driver (lanzado por UAC con --kernel-admin <operación>).
+    if "--kernel-admin" in sys.argv:
+        from buslens.infrastructure.kernel.kernel_service_cli import run as run_kernel_cli
+
+        raise SystemExit(run_kernel_cli(sys.argv))
+
     try:
         from buslens.presentation.winrt.winrt_app import BusLensApp
+        from buslens.presentation.winrt.winrt_types import WinRtUnavailableError
     except Exception as exc:
         logger.exception("No se pudo cargar la capa de presentación: %s", exc)
         logger.info("Esta aplicación está diseñada para Windows 10/11 con WinUI 3 / PyWinRT.")
@@ -39,6 +46,9 @@ def main() -> None:
     app = BusLensApp()
     try:
         app.run()
+    except WinRtUnavailableError as exc:
+        logger.info("%s — esta aplicación requiere Windows 10/11 con PyWinRT (winrt-Windows).", exc)
+        sys.exit(1)
     except KeyboardInterrupt:
         logger.info("BusLens interrumpido por el usuario")
     except Exception as exc:

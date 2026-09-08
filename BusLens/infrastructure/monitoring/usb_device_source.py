@@ -7,27 +7,38 @@ from typing import Callable, Iterable
 
 from buslens.domain.events.usb_events import DeviceChangedEvent, DeviceChangeType
 from buslens.domain.interfaces import IUsbDeviceSource
-from buslens.domain.models.usb_device import UsbDevice
-from buslens.infrastructure.wmi.wmi_client import WmiClient, parse_pnp_device_id
+from buslens.domain.models.usb_device import UsbDevice, parse_pnp_device_id
+from buslens.infrastructure.wmi.wmi_client import WmiClient, WmiEventWatcher
 
 logger = logging.getLogger("buslens.infrastructure.monitoring")
 
+_POLL_INTERVAL_SECS = 1.5
+_EVENT_RECEIVE_TIMEOUT_MS = 1500
+_EVENT_RESYNC_INTERVAL_SECS = 5.0
+
 
 class UsbDeviceSource(IUsbDeviceSource):
-    """Implementación del proveedor de dispositivos USB usando WMI.
+    """Proveedor de dispositivos USB usando WMI.
 
-    Responsabilidad única: traducir resultados WMI a entidades de dominio y emitir
-    eventos de cambio en segundo plano. Todo el E/S vive fuera del hilo de UI.
+    Responsabilidad única: traducir resultados WMI a entidades de dominio y
+    emitir eventos de cambio en segundo plano. Todo el E/S vive fuera del hilo
+    de UI y cada acceso a COM queda aislado con CoInitialize/CoUninitialize.
+
+    Estrategia de escucha:
+      1. Intenta suscribirse a ``__InstanceOperationEvent`` (hotplug nativo).
+      2. Si la suscripción falla o el watcher se rompe, cambia automáticamente
+         a un ciclo de polling que mantiene el estado sincronizado.
     """
 
-    _MODIFIER_PROPERTY_NAME = "Name"
-
-    def __init__(self, wmi_client: WmiClient | None = None) -> None:
+    def __init__(self, wmi_client: WmiClient | None = None, use_event_subscription: bool = True) -> None:
         self._wmi = wmi_client or WmiClient()
+        self._use_event_subscription = use_event_subscription
         self._listen_thread: threading.Thread | None = None
         self._stop_event = threading.Event()
         self._listener: Callable[[DeviceChangedEvent], None] | None = None
         self._known_devices: dict[str, UsbDevice] = {}
+
+    # --- contrato IUsbDeviceSource ---
 
     def poll_devices(self) -> Iterable[UsbDevice]:
         try:
@@ -46,18 +57,19 @@ class UsbDeviceSource(IUsbDeviceSource):
             manufacturer = getattr(item, "Manufacturer", "") or ""
 
             vid, prod = parse_pnp_device_id(pid)
-            device = UsbDevice(
-                pnp_device_id=pid,
-                name=name,
-                vendor_id=vid,
-                product_id=prod,
-                description=desc,
-                status=status,
-                class_guid=class_guid,
-                manufacturer=manufacturer,
-                is_active=status.upper() == "OK",
+            devices.append(
+                UsbDevice(
+                    pnp_device_id=pid,
+                    name=name,
+                    vendor_id=vid,
+                    product_id=prod,
+                    description=desc,
+                    status=status,
+                    class_guid=class_guid,
+                    manufacturer=manufacturer,
+                    is_active=status.upper() == "OK",
+                )
             )
-            devices.append(device)
         return devices
 
     def start_listening(self, callback: Callable[[DeviceChangedEvent], None]) -> None:
@@ -82,52 +94,95 @@ class UsbDeviceSource(IUsbDeviceSource):
         self._known_devices = {}
         logger.info("USB monitoring stopped")
 
+    # --- ciclo interno ---
+
     def _listen_loop(self) -> None:
-        poll_interval = 1.5
-        while not self._stop_event.is_set():
+        watcher: WmiEventWatcher | None = None
+        if self._use_event_subscription:
+            watcher = self._wmi.watch_usb_events()
+            if watcher is not None:
+                logger.info("Escuchando hotplug USB vía eventos WMI")
+        if watcher is not None:
             try:
-                current = {d.pnp_device_id: d for d in self.poll_devices()}
+                self._event_loop(watcher)
+                return
             except Exception as exc:
-                logger.warning("Loop poll error: %s", exc)
-                if self._listener is not None:
-                    self._listener(
-                        DeviceChangedEvent(
-                            change_type=DeviceChangeType.monitor_error,
-                            message=str(exc),
-                        )
-                    )
-                time.sleep(poll_interval)
-                continue
+                logger.warning("Ciclo de eventos WMI falló (%s); cambiando a polling", exc)
+            finally:
+                try:
+                    watcher.close()
+                except Exception:
+                    pass
+        logger.info("Usando polling periódico como mecanismo de monitoreo")
+        self._polling_loop()
 
-            added = set(current) - set(self._known_devices)
-            removed = set(self._known_devices) - set(current)
-            common = set(self._known_devices) & set(current)
+    def _event_loop(self, watcher: WmiEventWatcher) -> None:
+        """Recibe eventos WMI y, además, hace un poll de respaldo periódico."""
+        last_sync = 0.0
+        while True:
+            try:
+                raw_event = watcher.receive(_EVENT_RECEIVE_TIMEOUT_MS)
+            except Exception as exc:
+                logger.warning("Recepción de evento WMI falló: %s", exc)
+                break
 
-            for pid in sorted(added):
-                ev = DeviceChangedEvent(
-                    change_type=DeviceChangeType.device_added, device=current[pid]
-                )
-                self._dispatch(ev)
+            now = time.monotonic()
+            if raw_event is not None or (now - last_sync) >= _EVENT_RESYNC_INTERVAL_SECS:
+                self._sync_once()
+                last_sync = now
+            if self._stop_event.is_set():
+                break
 
-            for pid in sorted(removed):
-                ev = DeviceChangedEvent(
+    def _polling_loop(self) -> None:
+        """Ciclo de polling: siempre ejecuta al menos un sync por entrada."""
+        while True:
+            self._sync_once()
+            if self._stop_event.wait(_POLL_INTERVAL_SECS):
+                break
+
+    def _sync_once(self) -> None:
+        """Polla el estado actual y difunde las diferencias contra el snapshot previo."""
+        try:
+            current = {d.pnp_device_id: d for d in self.poll_devices()}
+        except Exception as exc:
+            logger.warning("Poll del estado USB falló: %s", exc)
+            self._dispatch(
+                DeviceChangedEvent(change_type=DeviceChangeType.monitor_error, message=str(exc))
+            )
+            return
+
+        added = set(current) - set(self._known_devices)
+        removed = set(self._known_devices) - set(current)
+        common = set(self._known_devices) & set(current)
+
+        for pid in sorted(added):
+            self._dispatch(
+                DeviceChangedEvent(change_type=DeviceChangeType.device_added, device=current[pid])
+            )
+
+        for pid in sorted(removed):
+            self._dispatch(
+                DeviceChangedEvent(
                     change_type=DeviceChangeType.device_removed, device=self._known_devices[pid]
                 )
-                self._dispatch(ev)
+            )
 
-            for pid in sorted(common):
-                prev = self._known_devices[pid]
-                curr = current[pid]
-                if self._device_changed(prev, curr):
-                    ev = DeviceChangedEvent(
-                        change_type=DeviceChangeType.device_updated, device=curr, previous_state=self._to_dict(prev)
+        for pid in sorted(common):
+            prev = self._known_devices[pid]
+            curr = current[pid]
+            if self._device_changed(prev, curr):
+                self._dispatch(
+                    DeviceChangedEvent(
+                        change_type=DeviceChangeType.device_updated,
+                        device=curr,
+                        previous_state=self._to_dict(prev),
                     )
-                    self._dispatch(ev)
+                )
 
-            self._known_devices = current
-            self._stop_event.wait(poll_interval)
+        self._known_devices = current
 
-    def _device_changed(self, prev: UsbDevice, curr: UsbDevice) -> bool:
+    @staticmethod
+    def _device_changed(prev: UsbDevice, curr: UsbDevice) -> bool:
         fields = (
             "name",
             "vendor_id",
@@ -137,12 +192,10 @@ class UsbDeviceSource(IUsbDeviceSource):
             "manufacturer",
             "is_active",
         )
-        for f in fields:
-            if getattr(prev, f) != getattr(curr, f):
-                return True
-        return False
+        return any(getattr(prev, f) != getattr(curr, f) for f in fields)
 
-    def _to_dict(self, device: UsbDevice) -> dict:
+    @staticmethod
+    def _to_dict(device: UsbDevice) -> dict:
         return {
             "name": device.name,
             "vendor_id": device.vendor_id,

@@ -1,0 +1,3 @@
+# Dependencias de desarrollo/build (no son runtime)
+# Ejecutable autocontenido con PyInstaller (onefile) + instalador Inno Setup.
+pyinstaller>=6.6

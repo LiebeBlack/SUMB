@@ -4,63 +4,55 @@ import re
 from dataclasses import dataclass
 from typing import Optional
 
-VID_REGEX = re.compile(r"VID_([0-9A-Fa-f]{4})")
-PID_REGEX = re.compile(r"PID_([0-9A-Fa-f]{4})")
+VID_REGEX = re.compile(r"VID_([0-9A-Fa-f]{4})", re.IGNORECASE)
+PID_REGEX = re.compile(r"PID_([0-9A-Fa-f]{4})", re.IGNORECASE)
+
+# Separadores observados entre VID y PID dentro de un mismo segmento.
+_SEGMENT_VID_PREFIX = "VID_"
+_SEGMENT_PID_PREFIX = "PID_"
 
 
 def parse_pnp_device_id(device_id: str) -> tuple[Optional[str], Optional[str]]:
     """Extrae Vendor ID y Product ID de un PNPDeviceID tipo USB.
 
-    Ejemplo: 'USB\\VID_0781&PID_5583\\...'
-    Devuelve (vid, pid) o (None, None) si no coincide.
+    Estrategia principal (requerida): expresiones regulares sobre la cadena
+    completa. Ejemplo: ``USB\\VID_0781&PID_5583\\1234`` -> ``("0781", "5583")``.
 
-    Nota de implementación: los PNP IDs reales suelen venir como
-        USB\\VID_xxxx&PID_yyyy\\...
-    pero en este entorno la función split('\\') sobre raw strings puede no
-    separar los segmentos esperados (comportamiento observado empíricamente).
-    Se mantiene una estrategia conservadora que extrae vid/pid incluso cuando
-    el separador no se comporta como se espera.
+    Estrategia de respaldo: si alguna parte falta, se recorren los segmentos
+    separados por backslash y se intenta ``VID_xxxx`` / ``PID_xxxx`` al inicio
+    de cada segmento (cubre IDs con formatos anómalos). En caso de no coincidir
+    ninguna estrategia se devuelve ``(None, None)`` sin lanzar excepciones.
     """
+    if not device_id:
+        return None, None
+
     vid: Optional[str] = None
     pid: Optional[str] = None
 
-    # Primer intento: separación por backslash y parseo por bloques.
+    vid_match = VID_REGEX.search(device_id)
+    pid_match = PID_REGEX.search(device_id)
+    if vid_match:
+        vid = vid_match.group(1).upper()
+    if pid_match:
+        pid = pid_match.group(1).upper()
+
+    if vid is not None and pid is not None:
+        return vid, pid
+
+    # Fallback conservador: análisis por segmentos separados por backslash.
+    # Se usan dos `if` independientes porque VID y PID pueden coexistir en el
+    # mismo segmento (p. ej. "VID_0781&PID_5581").
     for part in device_id.split("\\"):
-        part = part.strip()
-        upper = part.upper()
-        if upper.startswith("VID_"):
-            vid = part[4:8].upper()
-        elif upper.startswith("PID_"):
-            pid = part[4:8].upper()
+        upper = part.strip().upper()
+        if vid is None and upper.startswith(_SEGMENT_VID_PREFIX):
+            candidate = upper[len(_SEGMENT_VID_PREFIX):].split("&")[0][:4]
+            if len(candidate) == 4 and candidate.isalnum():
+                vid = candidate
+        if pid is None and upper.startswith(_SEGMENT_PID_PREFIX):
+            candidate = upper[len(_SEGMENT_PID_PREFIX):].split("&")[0][:4]
+            if len(candidate) == 4 and candidate.isalnum():
+                pid = candidate
 
-    # Segundo intento (fallback conservador si split no separó VID/PID en bloques).
-    if vid is None or pid is None:
-        maybe_vid = VID_REGEX.search(device_id)
-        maybe_pid = PID_REGEX.search(device_id)
-        if maybe_vid:
-            vid = maybe_vid.group(1).upper()
-        if maybe_pid:
-            pid = maybe_pid.group(1).upper()
-
-    return vid, pid
-
-
-def parse_pnp_device_id_legacy(device_id: str) -> tuple[Optional[str], Optional[str]]:
-    """Variante experimental para manejar IDs anormales conservando compatibilidad.
-
-    Nota: este parser se usa solo cuando el principal devuelve (None, None) para
-    un dispositivo USB conocido y se quiere intentar una extracción más conservadora.
-    """
-    vid, pid = parse_pnp_device_id(device_id)
-    if vid is None or pid is None:
-        if vid is None:
-            maybe_vid = VID_REGEX.search(device_id)
-            if maybe_vid:
-                vid = maybe_vid.group(1).upper()
-        if pid is None:
-            maybe_pid = PID_REGEX.search(device_id)
-            if maybe_pid:
-                pid = maybe_pid.group(1).upper()
     return vid, pid
 
 
@@ -100,7 +92,7 @@ class UsbDevice:
     def __post_init__(self) -> None:
         if not self.pnp_device_id:
             return
-        parsed_vid, parsed_pid = parse_pnp_device_id_legacy(self.pnp_device_id)
+        parsed_vid, parsed_pid = parse_pnp_device_id(self.pnp_device_id)
         if parsed_vid is not None:
             object.__setattr__(self, "vendor_id", parsed_vid)
         if parsed_pid is not None:

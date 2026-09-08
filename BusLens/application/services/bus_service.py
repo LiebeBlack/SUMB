@@ -1,16 +1,27 @@
 from __future__ import annotations
 
 import logging
+import threading
 from typing import Callable, Iterable
 
 from buslens.application.services.dispatcher import ThreadSafeDispatcher, get_global_dispatcher
 from buslens.domain.events.usb_events import DeviceChangedEvent, DeviceChangeType
 from buslens.domain.interfaces import IObservableBus, IUsbDeviceFilter, IUsbDeviceSource, IMonitoringController
 from buslens.domain.models.usb_device import UsbDevice
-from buslens.infrastructure.monitoring.usb_device_source import UsbDeviceSource
-from buslens.infrastructure.wmi.wmi_client import WmiClient
 
 logger = logging.getLogger("buslens.application.services")
+
+
+def _default_device_source() -> IUsbDeviceSource:
+    """Crea la fuente WMI por defecto.
+
+    El import es diferido para mantener la capa de Aplicación desacoplada del
+    módulo de infraestructura: la dependencia concreta se resuelve aquí, pero
+    el resto de la capa solo programa contra ``IUsbDeviceSource``.
+    """
+    from buslens.infrastructure.monitoring.usb_device_source import UsbDeviceSource
+
+    return UsbDeviceSource()
 
 
 class _InMemoryFilter(IUsbDeviceFilter):
@@ -46,26 +57,25 @@ class _InMemoryFilter(IUsbDeviceFilter):
 
 
 class BusService(IObservableBus, IMonitoringController):
-    """Orquestador central que une proveedor WMI con el ViewModel/UI.
+    """Orquestador central que une el proveedor USB con el ViewModel/UI.
 
     Responsabilidad: mantener el lifecycle del monitor, exponer dispositivos
-    filtrados y reemitir eventos de infraestructura con despacho seguro a UI.
+    filtrados y reemitir eventos de infraestructura con despacho seguro a la
+    UI (``ThreadSafeDispatcher``). El caché es thread-safe porque lo actualiza
+    el hilo de monitoreo y lo lee el hilo de UI.
     """
 
-    def __init__(
-        self,
-        source: IUsbDeviceSource | None = None,
-        wmi_client: WmiClient | None = None,
-    ) -> None:
-        if source is None:
-            source = UsbDeviceSource(wmi_client=wmi_client or WmiClient())
-        self._source = source
+    def __init__(self, source: IUsbDeviceSource | None = None) -> None:
+        self._source = source if source is not None else _default_device_source()
         self._filter = _InMemoryFilter()
-        self._dispatcher = get_global_dispatcher()
+        self._dispatcher: ThreadSafeDispatcher = get_global_dispatcher()
         self._listeners: set[Callable[[DeviceChangedEvent], None]] = set()
         self._paused = False
-        self._cached_devices: list[UsbDevice] = []
         self._started = False
+        self._cache_lock = threading.RLock()
+        self._cached_devices: list[UsbDevice] = []
+
+    # --- contrato IMonitoringController ---
 
     @property
     def is_monitoring(self) -> bool:
@@ -76,23 +86,71 @@ class BusService(IObservableBus, IMonitoringController):
 
     @property
     def current_devices(self) -> list[UsbDevice]:
-        return list(self._cached_devices)
-
-    def refresh(self) -> list[UsbDevice]:
-        """Sincroniza caché desde el proveedor WMI."""
-        try:
-            all_devices = list(self._source.poll_devices())
-        except Exception as exc:
-            logger.warning("refresh falló: %s", exc)
+        with self._cache_lock:
             return list(self._cached_devices)
-        self._cached_devices = self._filter.apply(all_devices)
-        return self._cached_devices
+
+    # --- contrato IObservableBus ---
 
     def subscribe(self, handler: Callable[[DeviceChangedEvent], None]) -> None:
         self._listeners.add(handler)
 
     def unsubscribe(self, handler: Callable[[DeviceChangedEvent], None]) -> None:
         self._listeners.discard(handler)
+
+    # --- operaciones ---
+
+    def refresh(self) -> list[UsbDevice]:
+        """Sincroniza el caché desde el proveedor WMI."""
+        try:
+            all_devices = list(self._source.poll_devices())
+        except Exception as exc:
+            logger.warning("refresh falló: %s", exc)
+            return self.current_devices
+        with self._cache_lock:
+            self._cached_devices = self._filter.apply(all_devices)
+            return list(self._cached_devices)
+
+    def set_filter(self, query: str) -> None:
+        self._filter.query = query
+        try:
+            all_devices = list(self._source.poll_devices())
+        except Exception as exc:
+            logger.warning("set_filter: poll falló (%s); filtrando caché existente", exc)
+            all_devices = self.current_devices
+        with self._cache_lock:
+            self._cached_devices = self._filter.apply(all_devices)
+
+    def start(self) -> None:
+        if self._started:
+            logger.warning("start ignorado: ya está corriendo")
+            return
+        self._started = True
+        try:
+            devices = list(self._source.poll_devices())
+            with self._cache_lock:
+                self._cached_devices = self._filter.apply(devices)
+        except Exception as exc:
+            logger.warning("poll inicial falló: %s", exc)
+            with self._cache_lock:
+                self._cached_devices = []
+
+        try:
+            self._source.start_listening(self._on_infra_event)
+        except Exception as exc:
+            logger.warning("start listening error: %s", exc)
+            self._emit(
+                DeviceChangedEvent(change_type=DeviceChangeType.monitor_error, message=str(exc))
+            )
+
+    def stop(self) -> None:
+        self._started = False
+        try:
+            self._source.stop_listening()
+        except Exception as exc:
+            logger.warning("stop source error: %s", exc)
+        self._emit(
+            DeviceChangedEvent(change_type=DeviceChangeType.monitoring_paused, message="Monitor detenido")
+        )
 
     def pause(self) -> None:
         if self._paused:
@@ -102,7 +160,9 @@ class BusService(IObservableBus, IMonitoringController):
             self._source.stop_listening()
         except Exception as exc:
             logger.warning("pause source stop_listening error: %s", exc)
-        self._emit(DeviceChangedEvent(change_type=DeviceChangeType.monitoring_paused, message="Monitoreo pausado"))
+        self._emit(
+            DeviceChangedEvent(change_type=DeviceChangeType.monitoring_paused, message="Monitoreo pausado")
+        )
 
     def resume(self) -> None:
         if not self._paused:
@@ -113,63 +173,51 @@ class BusService(IObservableBus, IMonitoringController):
         except Exception as exc:
             logger.warning("resume source start_listening error: %s", exc)
             self._paused = True
-        self._emit(DeviceChangedEvent(change_type=DeviceChangeType.monitoring_resumed, message="Monitoreo reanudado"))
-
-    def set_filter(self, query: str) -> None:
-        self._filter.query = query
-        self._cached_devices = self._filter.apply(self._source.poll_devices())
-
-    def start(self) -> None:
-        if self._started:
-            logger.warning("start ignorado: ya está corriendo")
+            self._emit(
+                DeviceChangedEvent(change_type=DeviceChangeType.monitor_error, message=str(exc))
+            )
             return
-        self._started = True
-        try:
-            self._cached_devices = self._filter.apply(self._source.poll_devices())
-        except Exception as exc:
-            logger.warning("poll inicial falló: %s", exc)
-            self._cached_devices = []
+        self._emit(
+            DeviceChangedEvent(change_type=DeviceChangeType.monitoring_resumed, message="Monitoreo reanudado")
+        )
 
-        try:
-            self._source.start_listening(self._on_infra_event)
-        except Exception as exc:
-            logger.warning("start listening error: %s", exc)
-            self._emit(DeviceChangedEvent(change_type=DeviceChangeType.monitor_error, message=str(exc)))
-
-    def stop(self) -> None:
-        self._started = False
-        try:
-            self._source.stop_listening()
-        except Exception as exc:
-            logger.warning("stop source error: %s", exc)
-        self._emit(DeviceChangedEvent(change_type=DeviceChangeType.monitoring_paused, message="Monitor detenido"))
+    # --- eventos internos ---
 
     def _on_infra_event(self, event: DeviceChangedEvent) -> None:
         if self._paused:
             return
-        if event.change_type is DeviceChangeType.device_added:
-            self._cached_devices.append(event.device)
-        elif event.change_type is DeviceChangeType.device_removed:
-            self._cached_devices = [d for d in self._cached_devices if d.pnp_device_id != event.device.pnp_device_id]
-        elif event.change_type is DeviceChangeType.device_updated:
-            self._cached_devices = [
-                event.device if d.pnp_device_id == event.device.pnp_device_id else d
-                for d in self._cached_devices
-            ]
-        elif event.change_type is DeviceChangeType.monitor_error:
+        with self._cache_lock:
+            if event.change_type is DeviceChangeType.device_added and event.device is not None:
+                if event.device not in self._cached_devices:
+                    self._cached_devices.append(event.device)
+            elif event.change_type is DeviceChangeType.device_removed and event.device is not None:
+                self._cached_devices = [
+                    d for d in self._cached_devices if d.pnp_device_id != event.device.pnp_device_id
+                ]
+            elif event.change_type is DeviceChangeType.device_updated and event.device is not None:
+                self._cached_devices = [
+                    event.device if d.pnp_device_id == event.device.pnp_device_id else d
+                    for d in self._cached_devices
+                ]
+            if self._filter.query:
+                self._cached_devices = self._filter.apply(self._cached_devices)
+        if event.change_type is DeviceChangeType.monitor_error:
             logger.warning("Monitor event error: %s", event.message)
         self._emit(event)
 
     def _emit(self, event: DeviceChangedEvent) -> None:
         for handler in set(self._listeners):
             try:
-                # Usamos closure explícita para evitar closing sobre variables cambiantes.
+                # Closure explícita para evitar cierres sobre variables cambiantes.
                 self._dispatcher.invoke_main(_make_handler(event, handler))
             except Exception as exc:
                 logger.warning("emit dispatcher failed: %s", exc)
 
 
 def _make_handler(event: DeviceChangedEvent, handler: Callable) -> Callable:
-    """Crea un callback que invoca `handler(event)` sin dependence de variables externas."""
-    return lambda: handler(event)
+    """Crea un callback que invoca ``handler(event)`` sin depender de variables externas."""
 
+    def _dispatch() -> None:
+        handler(event)
+
+    return _dispatch
