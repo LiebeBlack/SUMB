@@ -7,14 +7,14 @@ from setuptools import find_packages, setup
 PROJECT_ROOT = Path(__file__).resolve().parent
 
 setup(
-    name="buslens",
+    name="BusLens",
     version="1.0.0",
     description="Monitor e Inspector de Protocolos de Hardware / USB para Windows 10/11",
     long_description=(PROJECT_ROOT / "README.md").read_text(encoding="utf-8"),
     long_description_content_type="text/markdown",
     author="BusLens",
     license="MIT",
-    packages=find_packages(include=["buslens", "buslens.*"]),
+    packages=find_packages(include=["BusLens", "BusLens.*"]),
     python_requires=">=3.9",
     install_requires=[
         "wmi>=1.5.0; sys_platform == 'win32'",
