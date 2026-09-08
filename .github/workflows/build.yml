@@ -55,12 +55,24 @@ jobs:
         shell: pwsh
         run: |
           nuget restore kernel/packages.config -PackagesDirectory packages -SolutionDirectory .
-          # Verificar que el paquete se restauró
-          $wdkProps = "packages/Microsoft.Windows.WDK.x64.10.0.26100.1/build/native/Microsoft.Windows.WDK.x64.props"
-          if (-not (Test-Path $wdkProps)) {
-            throw "WDK NuGet package no se restauró correctamente. Falta: $wdkProps"
+          # Verificar que el paquete se restauró (la carpeta c/ contiene los
+          # headers y librerías que referencia el .vcxproj via $(WDKRoot))
+          $wdkDir = "packages/Microsoft.Windows.WDK.x64.10.0.26100.1/c"
+          if (-not (Test-Path $wdkDir)) {
+            throw "WDK NuGet package no se restauró correctamente. Falta: $wdkDir"
           }
           Write-Host "✓ WDK NuGet package restaurado correctamente"
+
+      - name: Diagnosticar estructura del paquete NuGet (WDK)
+        shell: pwsh
+        run: |
+          $pkg = "packages/Microsoft.Windows.WDK.x64.10.0.26100.1"
+          Write-Host "=== Raíz del paquete ==="
+          Get-ChildItem $pkg | Select-Object Name
+          Write-Host "=== build/ ==="
+          Get-ChildItem "$pkg/build" -ErrorAction SilentlyContinue | Select-Object Name
+          Write-Host "=== c/ (headers y librerías) ==="
+          Get-ChildItem "$pkg/c" -ErrorAction SilentlyContinue | Select-Object Name
 
       - name: Compilar buslens_filter.sys (x64 Release)
         shell: pwsh
@@ -71,6 +83,9 @@ jobs:
           if (-not (Test-Path "kernel/x64/Release/buslens_filter.sys")) {
             throw "buslens_filter.sys no se generó"
           }
+          # El INF ya no lo copian los WDK targets (eliminados); copiarlo manualmente
+          # para que el artefacto siga incluyéndolo.
+          Copy-Item "kernel/buslens_filter.inf" "kernel/x64/Release/buslens_filter.inf" -Force
           Write-Host "✓ Driver compilado exitosamente"
 
       - name: Subir buslens_filter.sys como artefacto

@@ -26,18 +26,21 @@
     <WDKContentRoot Condition="'$(WDKContentRoot)' == '' and '$(WDKRoot)' != ''">$(WDKRoot)\</WDKContentRoot>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <!-- Toolchain estandar MSVC (v143): el toolset WDK (WindowsKernelModeDriver10.0)
+       requiere la extension de Visual Studio del WDK, ausente en CI/GitHub Actions.
+       El paquete NuGet solo provee headers y librerias; el modo kernel se configura
+       manualmente con /kernel (cl) y /DRIVER /KERNEL (link). Un .sys es un DLL con
+       entry point kernel, por eso ConfigurationType=DynamicLibrary + TargetExt=.sys. -->
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
-    <ConfigurationType>Driver</ConfigurationType>
-    <PlatformToolset>WindowsKernelModeDriver10.0</PlatformToolset>
-    <TargetVersion>Windows10</TargetVersion>
-    <DriverType>KMDF</DriverType>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <PlatformToolset>v143</PlatformToolset>
+    <TargetExt>.sys</TargetExt>
     <SignMode>Off</SignMode>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
-    <ConfigurationType>Driver</ConfigurationType>
-    <PlatformToolset>WindowsKernelModeDriver10.0</PlatformToolset>
-    <TargetVersion>Windows10</TargetVersion>
-    <DriverType>KMDF</DriverType>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <PlatformToolset>v143</PlatformToolset>
+    <TargetExt>.sys</TargetExt>
     <SignMode>Off</SignMode>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
@@ -49,32 +52,34 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <KmdfVersion>1.33</KmdfVersion>
-    <KMDF_VERSION_MAJOR>1</KMDF_VERSION_MAJOR>
-    <KMDF_VERSION_MINOR>33</KMDF_VERSION_MINOR>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <KmdfVersion>1.33</KmdfVersion>
-    <KMDF_VERSION_MAJOR>1</KMDF_VERSION_MAJOR>
-    <KMDF_VERSION_MINOR>33</KMDF_VERSION_MINOR>
-  </PropertyGroup>
 
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <TreatWarningAsError>false</TreatWarningAsError>
       <WarningLevel>Level4</WarningLevel>
       <BufferSecurityCheck>true</BufferSecurityCheck>
-      <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <!-- Defines kernel-mode requeridos por los headers del WDK (los consumian los
+           targets de WDK; ahora van explicitos). KMDF_VERSION_* los exige wdf.h. -->
+      <PreprocessorDefinitions>_DEBUG;_KERNEL_MODE;NTDDI_VERSION=0x0A00000C;_WIN64;_AMD64_;AMD64;WINNT=1;WINVER=0x0A00;_WIN32_WINNT=0x0A00;KMDF_VERSION_MAJOR=1;KMDF_VERSION_MINOR=33;DEPRECATE_DDK_FUNCTIONS=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <AdditionalIncludeDirectories>$(WDKRoot)\Include\10.0.26100.0\km;$(WDKRoot)\Include\10.0.26100.0\km\crt;$(WDKRoot)\Include\10.0.26100.0\shared;$(WDKRoot)\Include\wdf\kmdf\1.33;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <!-- /kernel habilita el runtime kernel-mode del compilador (define _KERNEL_MODE). -->
+      <AdditionalOptions>/kernel %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Native</SubSystem>
+      <!-- Entry point KMDF (WdfDriverEntry.lib -> FxDriverEntry -> DriverEntry del usuario). -->
+      <EntryPointSymbol>FxDriverEntry</EntryPointSymbol>
+      <!-- /kernel desactiva el linking incremental (LNK1295 si se combinan). -->
+      <LinkIncremental>false</LinkIncremental>
       <AdditionalLibraryDirectories>$(WDKRoot)\Lib\10.0.26100.0\km\x64;$(WDKRoot)\Lib\wdf\kmdf\x64\1.33;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>BufferOverflowK.lib;ntoskrnl.lib;hal.lib;wmilib.lib;wdmsec.lib;WdfLdr.lib;WdfDriverEntry.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <!-- /DRIVER marca el binario como driver de kernel (subsystem native, .sys),
+           /KERNEL fuerza verificaciones kernel-mode y /NODEFAULTLIB excluye el CRT
+           de user-mode (las libs de kernel ya estan listadas arriba). -->
+      <AdditionalOptions>/DRIVER /KERNEL /NODEFAULTLIB %(AdditionalOptions)</AdditionalOptions>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -82,16 +87,20 @@
       <TreatWarningAsError>false</TreatWarningAsError>
       <WarningLevel>Level4</WarningLevel>
       <BufferSecurityCheck>true</BufferSecurityCheck>
-      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;_KERNEL_MODE;NTDDI_VERSION=0x0A00000C;_WIN64;_AMD64_;AMD64;WINNT=1;WINVER=0x0A00;_WIN32_WINNT=0x0A00;KMDF_VERSION_MAJOR=1;KMDF_VERSION_MINOR=33;DEPRECATE_DDK_FUNCTIONS=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <AdditionalIncludeDirectories>$(WDKRoot)\Include\10.0.26100.0\km;$(WDKRoot)\Include\10.0.26100.0\km\crt;$(WDKRoot)\Include\10.0.26100.0\shared;$(WDKRoot)\Include\wdf\kmdf\1.33;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/kernel %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Native</SubSystem>
+      <EntryPointSymbol>FxDriverEntry</EntryPointSymbol>
+      <LinkIncremental>false</LinkIncremental>
       <AdditionalLibraryDirectories>$(WDKRoot)\Lib\10.0.26100.0\km\x64;$(WDKRoot)\Lib\wdf\kmdf\x64\1.33;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>BufferOverflowK.lib;ntoskrnl.lib;hal.lib;wmilib.lib;wdmsec.lib;WdfLdr.lib;WdfDriverEntry.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalOptions>/DRIVER /KERNEL /NODEFAULTLIB %(AdditionalOptions)</AdditionalOptions>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -104,9 +113,9 @@
     <Inf Include="buslens_filter.inf" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
-  <ImportGroup Label="ExtensionTargets">
-    <!-- WDK targets from NuGet package -->
-    <Import Project="$(WDKRoot)\build\WindowsDriver.Common.targets"
-            Condition="'$(WDKRoot)' != '' and Exists('$(WDKRoot)\build\WindowsDriver.Common.targets')" />
-  </ImportGroup>
+  <!-- Los WDK targets (WindowsDriver.Common.targets) intentan cargar
+       Microsoft.DriverKit.Build.Tasks.18.0.dll, que NO existe en el paquete NuGet
+       (MSB4062). Son solo validaciones; el binario .sys se produce igual con las
+       flags manuales de arriba. El INF se copia al output en el workflow. -->
+  <ImportGroup Label="ExtensionTargets" />
 </Project>

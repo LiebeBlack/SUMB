@@ -26,6 +26,11 @@
 
 --*/
 
+/* INITGUID materializa las definiciones de GUID (DEFINE_GUID de
+   buslens_filter.h). Sin el, DEFINE_GUID solo emite una declaracion extern
+   y el link falla con LNK2001 (BUSLENS_DEVICE_INTERFACE_GUID sin definir).
+   Mismo patron que los samples oficiales de KMDF (echo, toaster). */
+#define INITGUID
 #include <ntddk.h>
 #include <wdf.h>
 #include <usb.h>
