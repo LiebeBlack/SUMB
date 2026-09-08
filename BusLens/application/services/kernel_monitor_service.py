@@ -19,8 +19,8 @@ import time
 from enum import Enum, auto
 from typing import Any, Callable, Optional
 
-from buslens.application.services.app_config import AppConfig
-from buslens.application.services.tier_manager import Tier, TierManager
+from BusLens.application.services.app_config import AppConfig
+from BusLens.application.services.tier_manager import Tier, TierManager
 
 logger = logging.getLogger("buslens.application.services.kernel")
 

@@ -5,7 +5,7 @@ from enum import Enum, auto
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from buslens.domain.models.usb_device import UsbDevice
+    from BusLens.domain.models.usb_device import UsbDevice
 
 
 class DeviceChangeType(Enum):

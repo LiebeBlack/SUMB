@@ -25,8 +25,8 @@ def ensure_buslens_importable() -> None:
 
 ensure_buslens_importable()
 
-from buslens.domain.models.usb_device import UsbDevice, parse_pnp_device_id  # noqa: E402
-from buslens.domain.events.usb_events import DeviceChangedEvent, DeviceChangeType  # noqa: E402
-from buslens.application.services.bus_service import BusService  # noqa: E402
-from buslens.application.services.dispatcher import ThreadSafeDispatcher, get_global_dispatcher  # noqa: E402
-from buslens.application.viewmodels.main_viewmodel import MainViewModel  # noqa: E402
+from BusLens.domain.models.usb_device import UsbDevice, parse_pnp_device_id  # noqa: E402
+from BusLens.domain.events.usb_events import DeviceChangedEvent, DeviceChangeType  # noqa: E402
+from BusLens.application.services.bus_service import BusService  # noqa: E402
+from BusLens.application.services.dispatcher import ThreadSafeDispatcher, get_global_dispatcher  # noqa: E402
+from BusLens.application.viewmodels.main_viewmodel import MainViewModel  # noqa: E402

@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Callable, Optional
 
-from buslens.presentation.winrt.winrt_helpers import (
+from BusLens.presentation.winrt.winrt_helpers import (
     call_method,
     safe_invoke_ui,
     set_prop,

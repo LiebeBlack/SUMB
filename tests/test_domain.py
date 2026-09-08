@@ -11,8 +11,8 @@ from tests.conftest import ensure_buslens_importable
 
 ensure_buslens_importable()
 
-from buslens.domain.models.usb_device import UsbDevice, parse_pnp_device_id
-from buslens.domain.events.usb_events import DeviceChangedEvent, DeviceChangeType
+from BusLens.domain.models.usb_device import UsbDevice, parse_pnp_device_id
+from BusLens.domain.events.usb_events import DeviceChangedEvent, DeviceChangeType
 
 
 class TestParsePnpDeviceId(unittest.TestCase):

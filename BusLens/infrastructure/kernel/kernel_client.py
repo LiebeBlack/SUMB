@@ -17,7 +17,7 @@ import ctypes.wintypes as wt
 import logging
 from typing import Any, Optional
 
-from buslens.infrastructure.kernel.ioctl_codes import (
+from BusLens.infrastructure.kernel.ioctl_codes import (
     DEVICE_INTERFACE_GUID,
     DEVICE_SYMLINK,
     IOCTL_ATTACH,
@@ -35,7 +35,7 @@ from buslens.infrastructure.kernel.ioctl_codes import (
     URB_PACKET_SIZE,
     URB_PACKET_STRUCT,
 )
-from buslens.infrastructure.usb.setupapi_helper import SetupApi, enumerate_interfaces
+from BusLens.infrastructure.usb.setupapi_helper import SetupApi, enumerate_interfaces
 
 logger = logging.getLogger("buslens.infrastructure.kernel")
 
@@ -220,7 +220,7 @@ class KernelClient:
 
     def usb_device_paths(self) -> list[str]:
         """Rutas de device interface USB presentes (para adjunto / Tier 2)."""
-        from buslens.infrastructure.usb.setupapi_helper import usb_device_paths as _list
+        from BusLens.infrastructure.usb.setupapi_helper import usb_device_paths as _list
 
         api = self._setup_api
         if api is None and hasattr(self._api, "SetupDiGetClassDevsW"):

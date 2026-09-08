@@ -1,6 +1,6 @@
-from buslens.domain.events.usb_events import DeviceChangedEvent, DeviceChangeType
-from buslens.domain.interfaces import IObservableBus, IUsbDeviceFilter, IUsbDeviceSource, IMonitoringController
-from buslens.domain.models.usb_device import UsbDevice
+from BusLens.domain.events.usb_events import DeviceChangedEvent, DeviceChangeType
+from BusLens.domain.interfaces import IObservableBus, IUsbDeviceFilter, IUsbDeviceSource, IMonitoringController
+from BusLens.domain.models.usb_device import UsbDevice
 
 __all__ = [
     "DeviceChangedEvent",

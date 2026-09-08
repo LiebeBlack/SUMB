@@ -22,7 +22,7 @@ import tempfile
 from pathlib import Path
 from typing import Any, Optional
 
-from buslens.infrastructure.kernel.ioctl_codes import (
+from BusLens.infrastructure.kernel.ioctl_codes import (
     DEVICE_SYMLINK,
     ERROR_ACCESS_DENIED,
     ERROR_SERVICE_DOES_NOT_EXIST,

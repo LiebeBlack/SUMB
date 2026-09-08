@@ -3,9 +3,9 @@ from __future__ import annotations
 import logging
 from typing import Callable
 
-from buslens.application.services.bus_service import BusService
-from buslens.domain.events.usb_events import DeviceChangedEvent, DeviceChangeType
-from buslens.domain.models.usb_device import UsbDevice
+from BusLens.application.services.bus_service import BusService
+from BusLens.domain.events.usb_events import DeviceChangedEvent, DeviceChangeType
+from BusLens.domain.models.usb_device import UsbDevice
 
 logger = logging.getLogger("buslens.application.viewmodels")
 

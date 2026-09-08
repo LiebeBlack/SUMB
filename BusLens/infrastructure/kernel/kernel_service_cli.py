@@ -16,7 +16,7 @@ import logging
 import sys
 from typing import Sequence
 
-from buslens.infrastructure.kernel.driver_manager import (
+from BusLens.infrastructure.kernel.driver_manager import (
     SERVICE_NAME,
     DriverManager,
     DriverManagerError,

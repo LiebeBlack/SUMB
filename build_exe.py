@@ -109,7 +109,7 @@ HIDDEN_IMPORTS = (
 def app_version() -> str:
     """Lee la versión desde buslens.presentation.winrt.app_config."""
     try:
-        from buslens.presentation.winrt.app_config import APP_VERSION
+        from BusLens.presentation.winrt.app_config import APP_VERSION
 
         return APP_VERSION
     except Exception:

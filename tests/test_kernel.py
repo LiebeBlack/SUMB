@@ -14,20 +14,20 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from buslens.application.services.app_config import AppConfig
-from buslens.application.services.kernel_monitor_service import (
+from BusLens.application.services.app_config import AppConfig
+from BusLens.application.services.kernel_monitor_service import (
     KernelMonitorService,
     KernelMonitorState,
 )
-from buslens.application.services.tier_manager import TIER_LABELS, Tier, TierManager
-from buslens.infrastructure.kernel import (
+from BusLens.application.services.tier_manager import TIER_LABELS, Tier, TierManager
+from BusLens.infrastructure.kernel import (
     DriverManager,
     DriverManagerError,
     NeedsElevationError,
     TestSigningDisabledError,
 )
-from buslens.infrastructure.kernel import ioctl_codes as ic
-from buslens.infrastructure.kernel.kernel_client import KernelClient, KernelClientError
+from BusLens.infrastructure.kernel import ioctl_codes as ic
+from BusLens.infrastructure.kernel.kernel_client import KernelClient, KernelClientError
 
 
 class TestIoctlCodes(unittest.TestCase):
@@ -557,7 +557,7 @@ class TestTierManager(unittest.TestCase):
         self.assertIsNotNone(manager.last_error)
 
     def test_Tier1_NeedsElevation_ElevatesAndRetries(self):
-        from buslens.infrastructure.kernel.dynamic_kernel_bridge import (
+        from BusLens.infrastructure.kernel.dynamic_kernel_bridge import (
             BridgeNeedsElevationError,
         )
 
@@ -585,7 +585,7 @@ class TestTierManager(unittest.TestCase):
         self.assertTrue(winusbs[0].closed)
 
     def test_Deactivate_ElevatedService_RequestsCleanup(self):
-        from buslens.infrastructure.kernel.dynamic_kernel_bridge import (
+        from BusLens.infrastructure.kernel.dynamic_kernel_bridge import (
             BridgeNeedsElevationError,
         )
 

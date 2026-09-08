@@ -14,12 +14,12 @@ from tests.fake_wmi_source import (
     FakeWmiEntity,
 )
 
-from buslens.application.services.bus_service import BusService
-from buslens.application.services.dispatcher import ThreadSafeDispatcher, get_global_dispatcher
-from buslens.application.viewmodels.main_viewmodel import MainViewModel
-from buslens.domain.events.usb_events import DeviceChangedEvent, DeviceChangeType
-from buslens.domain.models.usb_device import UsbDevice
-from buslens.infrastructure.monitoring.usb_device_source import UsbDeviceSource
+from BusLens.application.services.bus_service import BusService
+from BusLens.application.services.dispatcher import ThreadSafeDispatcher, get_global_dispatcher
+from BusLens.application.viewmodels.main_viewmodel import MainViewModel
+from BusLens.domain.events.usb_events import DeviceChangedEvent, DeviceChangeType
+from BusLens.domain.models.usb_device import UsbDevice
+from BusLens.infrastructure.monitoring.usb_device_source import UsbDeviceSource
 
 
 class TestBusServiceFiltering(unittest.TestCase):

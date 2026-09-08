@@ -5,10 +5,10 @@ import threading
 import time
 from typing import Callable, Iterable
 
-from buslens.domain.events.usb_events import DeviceChangedEvent, DeviceChangeType
-from buslens.domain.interfaces import IUsbDeviceSource
-from buslens.domain.models.usb_device import UsbDevice, parse_pnp_device_id
-from buslens.infrastructure.wmi.wmi_client import WmiClient, WmiEventWatcher
+from BusLens.domain.events.usb_events import DeviceChangedEvent, DeviceChangeType
+from BusLens.domain.interfaces import IUsbDeviceSource
+from BusLens.domain.models.usb_device import UsbDevice, parse_pnp_device_id
+from BusLens.infrastructure.wmi.wmi_client import WmiClient, WmiEventWatcher
 
 logger = logging.getLogger("buslens.infrastructure.monitoring")
 

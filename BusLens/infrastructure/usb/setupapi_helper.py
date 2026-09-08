@@ -141,6 +141,6 @@ def enumerate_interfaces(guid_str: str, api: Optional[SetupApi] = None) -> list[
 
 def usb_device_paths(api: Optional[SetupApi] = None) -> list[str]:
     """Device interfaces de dispositivos USB presentes (GUID USB_DEVICE)."""
-    from buslens.infrastructure.kernel.ioctl_codes import USB_DEVICE_INTERFACE_GUID
+    from BusLens.infrastructure.kernel.ioctl_codes import USB_DEVICE_INTERFACE_GUID
 
     return enumerate_interfaces(USB_DEVICE_INTERFACE_GUID, api=api)

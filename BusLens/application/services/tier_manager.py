@@ -82,25 +82,25 @@ class TierManager:
 
     @staticmethod
     def _default_bridge_factory() -> Any:
-        from buslens.infrastructure.kernel.dynamic_kernel_bridge import DynamicKernelBridge
+        from BusLens.infrastructure.kernel.dynamic_kernel_bridge import DynamicKernelBridge
 
         return DynamicKernelBridge()
 
     @staticmethod
     def _default_client_factory() -> Any:
-        from buslens.infrastructure.kernel.kernel_client import KernelClient
+        from BusLens.infrastructure.kernel.kernel_client import KernelClient
 
         return KernelClient()
 
     @staticmethod
     def _default_winusb_factory() -> Any:
-        from buslens.infrastructure.usb.winusb_client import WinUsbClient
+        from BusLens.infrastructure.usb.winusb_client import WinUsbClient
 
         return WinUsbClient()
 
     @staticmethod
     def _default_elevator(operation: str) -> bool:
-        from buslens.infrastructure.kernel.elevation import elevate_kernel_operation
+        from BusLens.infrastructure.kernel.elevation import elevate_kernel_operation
 
         return elevate_kernel_operation(operation)
 
@@ -164,7 +164,7 @@ class TierManager:
             self.last_error = f"Tier 1 (KMDF): {exc}"
             # Intentar con elevación UAC puntual (solo si el montaje en
             # proceso falló por permisos; otros fallos no mejoran con UAC).
-            from buslens.infrastructure.kernel.dynamic_kernel_bridge import (
+            from BusLens.infrastructure.kernel.dynamic_kernel_bridge import (
                 BridgeNeedsElevationError,
             )
 

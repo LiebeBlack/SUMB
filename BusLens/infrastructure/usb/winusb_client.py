@@ -18,7 +18,7 @@ import logging
 import threading
 from typing import Any, Callable, Optional
 
-from buslens.infrastructure.usb.setupapi_helper import SetupApi, usb_device_paths
+from BusLens.infrastructure.usb.setupapi_helper import SetupApi, usb_device_paths
 
 logger = logging.getLogger("buslens.infrastructure.usb.winusb")
 

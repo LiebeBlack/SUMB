@@ -6,7 +6,7 @@ import threading
 import time
 from typing import Any, Callable, Iterable, Iterator, Optional
 
-from buslens.domain.models.usb_device import parse_pnp_device_id
+from BusLens.domain.models.usb_device import parse_pnp_device_id
 
 try:
     import wmi

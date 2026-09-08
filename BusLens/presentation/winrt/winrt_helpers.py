@@ -4,7 +4,7 @@ import importlib
 import logging
 from typing import Any, Callable, Iterable, List, Optional, Sequence
 
-from buslens.application.services.dispatcher import ThreadSafeDispatcher, get_global_dispatcher
+from BusLens.application.services.dispatcher import ThreadSafeDispatcher, get_global_dispatcher
 
 logger = logging.getLogger("buslens.presentation.winrt")
 

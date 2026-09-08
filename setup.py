@@ -19,6 +19,7 @@ setup(
     install_requires=[
         "wmi>=1.5.0; sys_platform == 'win32'",
         "pywin32>=306; sys_platform == 'win32'",
+        "pythoncom; sys_platform == 'win32'",
         # Solo los namespaces PyWinRT que BusLens importa (nada de [all],
         # que arrastra toda la proyección WinRT y eterniza el CI).
         "winrt-windows.system>=1.0.0; sys_platform == 'win32'",
@@ -32,7 +33,7 @@ setup(
     ],
     entry_points={
         "console_scripts": [
-            "buslens = buslens.__main__:main",
+            "buslens = BusLens.__main__:main",
         ],
     },
     classifiers=[

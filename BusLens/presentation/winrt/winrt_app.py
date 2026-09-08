@@ -3,17 +3,17 @@ from __future__ import annotations
 import logging
 from typing import Any, Callable, Optional
 
-from buslens.application.services.app_config import AppConfig
-from buslens.application.services.bus_service import BusService
-from buslens.application.services.kernel_monitor_service import (
+from BusLens.application.services.app_config import AppConfig
+from BusLens.application.services.bus_service import BusService
+from BusLens.application.services.kernel_monitor_service import (
     KernelMonitorService,
     KernelMonitorState,
 )
-from buslens.application.viewmodels.kernel_settings_viewmodel import KernelSettingsViewModel
-from buslens.application.viewmodels.main_viewmodel import MainViewModel
-from buslens.domain.models.usb_device import UsbDevice
-from buslens.infrastructure.monitoring.usb_device_source import UsbDeviceSource
-from buslens.presentation.winrt.app_config import (
+from BusLens.application.viewmodels.kernel_settings_viewmodel import KernelSettingsViewModel
+from BusLens.application.viewmodels.main_viewmodel import MainViewModel
+from BusLens.domain.models.usb_device import UsbDevice
+from BusLens.infrastructure.monitoring.usb_device_source import UsbDeviceSource
+from BusLens.presentation.winrt.app_config import (
     APP_NAME,
     APP_VERSION,
     DEFAULT_WINDOW_HEIGHT,
@@ -22,7 +22,7 @@ from buslens.presentation.winrt.app_config import (
     MIN_WINDOW_WIDTH,
     WINDOW_TITLE,
 )
-from buslens.presentation.winrt.winrt_helpers import (
+from BusLens.presentation.winrt.winrt_helpers import (
     add_event,
     add_to_collection,
     call_method,
@@ -40,7 +40,7 @@ from buslens.presentation.winrt.winrt_helpers import (
     setup_thread_safe_dispatcher_for_winui,
     shutdown_thread_safe_dispatcher_for_winui,
 )
-from buslens.presentation.winrt.winrt_types import WinRtUnavailableError, WinUiTypes
+from BusLens.presentation.winrt.winrt_types import WinRtUnavailableError, WinUiTypes
 
 logging.basicConfig(level=logging.INFO, format="%(name)s [%(threadName)s] %(message)s")
 logger = logging.getLogger("buslens.presentation")

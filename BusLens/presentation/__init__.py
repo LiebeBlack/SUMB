@@ -1,4 +1,4 @@
-from buslens.presentation.winrt.winrt_app import BusLensApp
+from BusLens.presentation.winrt.winrt_app import BusLensApp
 
 __all__ = ["BusLensApp"]
 
@@ -8,7 +8,7 @@ __version__ = "1.0.0"
 def _check_importability() -> bool:
     """La capa de presentación depende de WinRT y es opcional hasta ejecución."""
     try:
-        from buslens.presentation.winrt.winrt_types import WinUiTypes
+        from BusLens.presentation.winrt.winrt_types import WinUiTypes
         _ = WinUiTypes()
         return True
     except Exception:

@@ -4,10 +4,10 @@ import logging
 import threading
 from typing import Callable, Iterable
 
-from buslens.application.services.dispatcher import ThreadSafeDispatcher, get_global_dispatcher
-from buslens.domain.events.usb_events import DeviceChangedEvent, DeviceChangeType
-from buslens.domain.interfaces import IObservableBus, IUsbDeviceFilter, IUsbDeviceSource, IMonitoringController
-from buslens.domain.models.usb_device import UsbDevice
+from BusLens.application.services.dispatcher import ThreadSafeDispatcher, get_global_dispatcher
+from BusLens.domain.events.usb_events import DeviceChangedEvent, DeviceChangeType
+from BusLens.domain.interfaces import IObservableBus, IUsbDeviceFilter, IUsbDeviceSource, IMonitoringController
+from BusLens.domain.models.usb_device import UsbDevice
 
 logger = logging.getLogger("buslens.application.services")
 
@@ -19,7 +19,7 @@ def _default_device_source() -> IUsbDeviceSource:
     módulo de infraestructura: la dependencia concreta se resuelve aquí, pero
     el resto de la capa solo programa contra ``IUsbDeviceSource``.
     """
-    from buslens.infrastructure.monitoring.usb_device_source import UsbDeviceSource
+    from BusLens.infrastructure.monitoring.usb_device_source import UsbDeviceSource
 
     return UsbDeviceSource()
 
@@ -43,17 +43,20 @@ class _InMemoryFilter(IUsbDeviceFilter):
             return list(devices)
         out = []
         for d in devices:
-            if self.matches_search(d, self._query):
+            if self.matches(d):
                 out.append(d)
         return out
 
-    def matches_search(self, device: UsbDevice, query: str) -> bool:
+    def matches(self, device: UsbDevice) -> bool:
+        """Implementación del contrato IUsbDeviceFilter."""
+        if not self._query:
+            return True
         haystack = (
             f"{device.name or ''} {device.vendor_id or ''} "
             f"{device.product_id or ''} {device.description or ''} "
             f"{device.manufacturer or ''} {device.pnp_device_id or ''}"
         ).lower()
-        return query in haystack
+        return self._query in haystack
 
 
 class BusService(IObservableBus, IMonitoringController):
@@ -84,6 +87,14 @@ class BusService(IObservableBus, IMonitoringController):
     def is_paused(self) -> bool:
         return self._paused
 
+    def start_monitoring(self) -> None:
+        """Alias para start para compatibilidad con IMonitoringController."""
+        self.start()
+
+    def stop_monitoring(self) -> None:
+        """Alias para stop para compatibilidad con IMonitoringController."""
+        self.stop()
+
     @property
     def current_devices(self) -> list[UsbDevice]:
         with self._cache_lock:
@@ -96,6 +107,14 @@ class BusService(IObservableBus, IMonitoringController):
 
     def unsubscribe(self, handler: Callable[[DeviceChangedEvent], None]) -> None:
         self._listeners.discard(handler)
+
+    def subscribe_device_changes(self, handler: Callable[[DeviceChangedEvent], None]) -> None:
+        """Alias para subscribe para compatibilidad con IObservableBus."""
+        self.subscribe(handler)
+
+    def unsubscribe_device_changes(self, handler: Callable[[DeviceChangedEvent], None]) -> None:
+        """Alias para unsubscribe para compatibilidad con IObservableBus."""
+        self.unsubscribe(handler)
 
     # --- operaciones ---
 

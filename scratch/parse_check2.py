@@ -12,7 +12,7 @@ init = ROOT / "buslens" / "__init__.py"
 loader = SourceFileLoader("buslens", str(init))
 loader.load_module("buslens")
 
-from buslens.domain.models.usb_device import parse_pnp_device_id
+from BusLens.domain.models.usb_device import parse_pnp_device_id
 
 input_id = r"USB\VID_0781&PID_5581\1234"
 print("input repr:", repr(input_id))

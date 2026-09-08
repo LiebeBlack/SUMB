@@ -12,7 +12,7 @@ from __future__ import annotations
 from collections import deque
 from typing import Any, Callable, Iterable, Optional
 
-from buslens.domain.events.usb_events import DeviceChangedEvent
+from BusLens.domain.events.usb_events import DeviceChangedEvent
 
 
 class FakeWmiEntity:

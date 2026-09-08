@@ -10,8 +10,8 @@ from __future__ import annotations
 import logging
 from typing import Callable, Optional
 
-from buslens.application.services.app_config import AppConfig
-from buslens.application.services.kernel_monitor_service import (
+from BusLens.application.services.app_config import AppConfig
+from BusLens.application.services.kernel_monitor_service import (
     KernelMonitorService,
     KernelMonitorState,
 )
