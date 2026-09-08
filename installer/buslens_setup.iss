@@ -82,8 +82,8 @@ Name: "startupicon"; Description: "Iniciar {#MyAppName} con Windows"; GroupDescr
 Source: "..\dist\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\assets\buslens.ico"; DestDir: "{app}\assets"; Flags: ignoreversion
 ; Driver del Modo Avanzado (Beta) — solo si fue compilado con el WDK
-Source: "..\kernel\buslens_filter.sys"; DestDir: "{app}\kernel"; Flags: ignoreversion; Check: KernelDriverExists
-Source: "..\kernel\buslens_filter.inf"; DestDir: "{app}\kernel"; Flags: ignoreversion; Check: KernelDriverExists
+Source: "..\kernel\buslens_filter.sys"; DestDir: "{app}\kernel"; Flags: ignoreversion skipifsourcedoesntexist
+Source: "..\kernel\buslens_filter.inf"; DestDir: "{app}\kernel"; Flags: ignoreversion skipifsourcedoesntexist
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\assets\buslens.ico"; WorkingDir: "{app}"

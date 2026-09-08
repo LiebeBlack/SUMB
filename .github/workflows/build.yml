@@ -44,14 +44,13 @@ jobs:
     needs: test
     if: github.event_name == 'push'
     runs-on: windows-latest
-    continue-on-error: true
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Instalar Windows Driver Kit (WDK)
         shell: pwsh
-        run: choco install windows-driver-kit --no-progress -y
+        run: choco install wdk --no-progress -y
 
       - name: Compilar buslens_filter.sys (x64 Release)
         shell: pwsh
@@ -81,7 +80,7 @@ jobs:
   build:
     name: Build EXE + Installer
     needs: [test, kernel-driver]
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && needs.kernel-driver.result == 'success'
     runs-on: windows-latest
     steps:
       - name: Checkout
