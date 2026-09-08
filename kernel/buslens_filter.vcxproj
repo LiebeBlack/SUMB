@@ -59,11 +59,7 @@
     <KMDF_VERSION_MAJOR>1</KMDF_VERSION_MAJOR>
     <KMDF_VERSION_MINOR>33</KMDF_VERSION_MINOR>
   </PropertyGroup>
-  <ItemDefinitionGroup>
-    <ClCompile>
-      <PreprocessorDefinitions>%(PreprocessorDefinitions)</PreprocessorDefinitions>
-    </ClCompile>
-  </ItemDefinitionGroup>
+
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <TreatWarningAsError>false</TreatWarningAsError>
@@ -99,10 +95,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="buslens_filter.c">
-      <PreprocessorDefinitions Condition="'$(Configuration)'=='Debug'">_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <PreprocessorDefinitions Condition="'$(Configuration)'=='Release'">NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-    </ClCompile>
+    <ClCompile Include="buslens_filter.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="buslens_filter.h" />
