@@ -54,11 +54,11 @@ def check_external_dependencies(path: Path) -> None:
 def check_layer_importability() -> bool:
     """Verifica que cada capa se pueda importar (WMI/WinRT son opcionales)."""
     checks = [
-        ("buslens", "paquete raíz"),
-        ("buslens.domain", "capa de dominio"),
-        ("buslens.application", "capa de aplicación"),
-        ("buslens.infrastructure", "capa de infraestructura"),
-        ("buslens.infrastructure.wmi", "cliente WMI"),
+        ("BusLens", "paquete raíz"),
+        ("BusLens.domain", "capa de dominio"),
+        ("BusLens.application", "capa de aplicación"),
+        ("BusLens.infrastructure", "capa de infraestructura"),
+        ("BusLens.infrastructure.wmi", "cliente WMI"),
     ]
     ok = True
     for module_name, label in checks:
