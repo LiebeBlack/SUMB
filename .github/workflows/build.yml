@@ -18,12 +18,8 @@ jobs:
   # se instalan dependencias aquí (evita descargas eternas en CI).
   # -------------------------------------------------------------------------
   test:
-    name: Test (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [windows-latest, ubuntu-latest]
+    name: Test (windows-latest)
+    runs-on: windows-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -120,7 +116,7 @@ jobs:
         id: version
         shell: pwsh
         run: |
-          $v = python -c "import buslens.presentation.winrt.app_config as c; print(c.APP_VERSION)"
+          $v = python -c "import BusLens.presentation.winrt.app_config as c; print(c.APP_VERSION)"
           echo "APP_VERSION=$v" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           echo "Versión detectada: $v"
 
@@ -159,7 +155,7 @@ jobs:
     name: Publicar Release
     needs: build
     if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     permissions:
       contents: write
     steps:

@@ -13,14 +13,14 @@ def project_root() -> Path:
 
 
 def ensure_buslens_importable() -> None:
-    """Verifica que el paquete `buslens` se pueda importar desde la raíz.
+    """Verifica que el paquete `BusLens` se pueda importar desde la raíz.
 
-    El directorio del paquete es `buslens/` (lowercase).
+    El directorio del paquete es `BusLens/`.
     """
     try:
-        import buslens  # noqa: F401
+        import BusLens  # noqa: F401
     except Exception as exc:
-        print(f"[WARN] no se pudo importar buslens en conftest: {exc}")
+        print(f"[WARN] no se pudo importar BusLens en conftest: {exc}")
 
 
 ensure_buslens_importable()
