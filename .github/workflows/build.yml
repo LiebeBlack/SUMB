@@ -65,11 +65,7 @@ jobs:
       - name: Compilar buslens_filter.sys (x64 Release)
         shell: pwsh
         run: |
-          msbuild kernel/buslens_filter.vcxproj `
-            /p:Configuration=Release `
-            /p:Platform=x64 `
-            /p:SolutionDir="$((Get-Location).Path)\" `
-            /m /v:minimal
+          msbuild kernel/buslens_filter.vcxproj /p:Configuration=Release /p:Platform=x64 /p:SignMode=Off /m /v:normal
 
           # Verificar que los archivos se generaron
           if (-not (Test-Path "kernel/x64/Release/buslens_filter.sys")) {

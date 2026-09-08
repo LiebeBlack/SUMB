@@ -17,10 +17,12 @@
     <RootNamespace>buslens_filter</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
     <ProjectName>buslens_filter</ProjectName>
+    <SignMode>Off</SignMode>
   </PropertyGroup>
   <PropertyGroup Label="WDKPaths">
-    <WDKRoot Condition="'$(WDKRoot)' == '' and Exists('$(SolutionDir)packages\Microsoft.Windows.WDK.x64.10.0.26100.1\c')">$(SolutionDir)packages\Microsoft.Windows.WDK.x64.10.0.26100.1\c</WDKRoot>
-    <WDKRoot Condition="'$(WDKRoot)' == '' and Exists('..\packages\Microsoft.Windows.WDK.x64.10.0.26100.1\c')">..\packages\Microsoft.Windows.WDK.x64.10.0.26100.1\c</WDKRoot>
+    <SolutionDir Condition="'$(SolutionDir)' == ''">$(MSBuildThisFileDirectory)..\</SolutionDir>
+    <WDKRoot Condition="'$(WDKRoot)' == '' and Exists('$(MSBuildThisFileDirectory)..\packages\Microsoft.Windows.WDK.x64.10.0.26100.1\c')">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\packages\Microsoft.Windows.WDK.x64.10.0.26100.1\c'))</WDKRoot>
+    <WDKRoot Condition="'$(WDKRoot)' == '' and Exists('$(SolutionDir)packages\Microsoft.Windows.WDK.x64.10.0.26100.1\c')">$([System.IO.Path]::GetFullPath('$(SolutionDir)packages\Microsoft.Windows.WDK.x64.10.0.26100.1\c'))</WDKRoot>
     <WDKContentRoot Condition="'$(WDKContentRoot)' == '' and '$(WDKRoot)' != ''">$(WDKRoot)\</WDKContentRoot>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -29,22 +31,17 @@
     <PlatformToolset>WindowsKernelModeDriver10.0</PlatformToolset>
     <TargetVersion>Windows10</TargetVersion>
     <DriverType>KMDF</DriverType>
+    <SignMode>Off</SignMode>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Driver</ConfigurationType>
     <PlatformToolset>WindowsKernelModeDriver10.0</PlatformToolset>
     <TargetVersion>Windows10</TargetVersion>
     <DriverType>KMDF</DriverType>
+    <SignMode>Off</SignMode>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
-  <ImportGroup Label="ExtensionSettings">
-    <!-- WDK props from NuGet package (run 'nuget restore' first) -->
-    <Import Project="$(SolutionDir)packages\Microsoft.Windows.WDK.x64.10.0.26100.1\build\native\Microsoft.Windows.WDK.x64.props"
-            Condition="Exists('$(SolutionDir)packages\Microsoft.Windows.WDK.x64.10.0.26100.1\build\native\Microsoft.Windows.WDK.x64.props')" />
-    <!-- Fallback: check relative to project dir (CI uses -SolutionDirectory .) -->
-    <Import Project="..\packages\Microsoft.Windows.WDK.x64.10.0.26100.1\build\native\Microsoft.Windows.WDK.x64.props"
-            Condition="!Exists('$(SolutionDir)packages\Microsoft.Windows.WDK.x64.10.0.26100.1\build\native\Microsoft.Windows.WDK.x64.props') And Exists('..\packages\Microsoft.Windows.WDK.x64.10.0.26100.1\build\native\Microsoft.Windows.WDK.x64.props')" />
-  </ImportGroup>
+  <ImportGroup Label="ExtensionSettings" />
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
