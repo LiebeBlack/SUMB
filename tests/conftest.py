@@ -15,8 +15,7 @@ def project_root() -> Path:
 def ensure_buslens_importable() -> None:
     """Verifica que el paquete `buslens` se pueda importar desde la raíz.
 
-    En Windows (sistema de archivos insensible a mayúsculas) el directorio
-    BusLens/ se resuelve como `buslens` automáticamente.
+    El directorio del paquete es `buslens/` (lowercase).
     """
     try:
         import buslens  # noqa: F401
