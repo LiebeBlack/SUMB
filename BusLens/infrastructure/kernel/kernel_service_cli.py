@@ -17,6 +17,7 @@ import sys
 from typing import Sequence
 
 from buslens.infrastructure.kernel.driver_manager import (
+    SERVICE_NAME,
     DriverManager,
     DriverManagerError,
     NeedsElevationError,
@@ -33,11 +34,11 @@ def run(argv: Sequence[str]) -> int:
     try:
         if operation == "install-start":
             manager._install_and_start_now()
-            print(f"[OK] Servicio {manager.SERVICE_NAME} instalado e iniciado")
+            print(f"[OK] Servicio {SERVICE_NAME} instalado e iniciado")
         elif operation == "stop-delete":
             manager._stop_now()
             manager._delete_now()
-            print(f"[OK] Servicio {manager.SERVICE_NAME} detenido y eliminado")
+            print(f"[OK] Servicio {SERVICE_NAME} detenido y eliminado")
         elif operation == "status":
             state = manager.driver_state()
             print(f"installed={state['installed']} running={state['running']}")
