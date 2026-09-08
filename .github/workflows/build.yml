@@ -51,11 +51,24 @@ jobs:
       - name: Instalar Windows Driver Kit (WDK)
         shell: pwsh
         run: |
-          # Usar Visual Studio Build Tools con componentes WDK específicos
+          # Instalar Visual Studio Build Tools primero
           $vsUrl = "https://aka.ms/vs/17/release/vs_buildtools.exe"
           $vsPath = "$env:TEMP\vs_buildtools.exe"
           Invoke-WebRequest -Uri $vsUrl -OutFile $vsPath
-          Start-Process $vsPath -ArgumentList "--add Microsoft.VisualStudio.Workload.VCTools;includeRecommended --add Microsoft.VisualStudio.Component.Windows10SDK.22000 --add Microsoft.VisualStudio.Component.Windows11SDK.WindowsDriverKit --quiet --wait --norestart" -Wait
+          Start-Process $vsPath -ArgumentList "--add Microsoft.VisualStudio.Workload.VCTools;includeRecommended --add Microsoft.VisualStudio.Component.Windows10SDK.22000 --quiet --wait --norestart" -Wait
+          
+          # Instalar WDK usando el instalador completo con todos los componentes
+          $wdkUrl = "https://go.microsoft.com/fwlink/?linkid=2125747"
+          $wdkPath = "$env:TEMP\wdksetup.exe"
+          Invoke-WebRequest -Uri $wdkUrl -OutFile $wdkPath
+          Start-Process $wdkPath -ArgumentList "/features Idx_IS_All /q /norestart" -Wait
+          
+          # Verificar que el WDK se instaló correctamente
+          $wdkPath = "${env:ProgramFiles(x86)}\Windows Kits\10"
+          if (-not (Test-Path $wdkPath)) {
+            throw "WDK no se instaló correctamente en $wdkPath"
+          }
+          Write-Host "WDK instalado correctamente en $wdkPath"
 
       - name: Compilar buslens_filter.sys (x64 Release)
         shell: pwsh
