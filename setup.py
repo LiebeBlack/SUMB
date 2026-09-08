@@ -19,7 +19,16 @@ setup(
     install_requires=[
         "wmi>=1.5.0; sys_platform == 'win32'",
         "pywin32>=306; sys_platform == 'win32'",
-        "winrt-windows.ui.xaml[all]>=1.0.0; sys_platform == 'win32'",
+        # Solo los namespaces PyWinRT que BusLens importa (nada de [all],
+        # que arrastra toda la proyección WinRT y eterniza el CI).
+        "winrt-windows.system>=1.0.0; sys_platform == 'win32'",
+        "winrt-windows.ui>=1.0.0; sys_platform == 'win32'",
+        "winrt-windows.ui.text>=1.0.0; sys_platform == 'win32'",
+        "winrt-windows.ui.viewmanagement>=1.0.0; sys_platform == 'win32'",
+        "winrt-windows.ui.xaml>=1.0.0; sys_platform == 'win32'",
+        "winrt-windows.ui.xaml.controls>=1.0.0; sys_platform == 'win32'",
+        "winrt-windows.ui.xaml.data>=1.0.0; sys_platform == 'win32'",
+        "winrt-windows.ui.xaml.media>=1.0.0; sys_platform == 'win32'",
     ],
     entry_points={
         "console_scripts": [

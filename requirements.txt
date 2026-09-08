@@ -2,9 +2,11 @@
 # Clean Architecture / WinUI 3 via PyWinRT / WMI
 #
 # Nota importante:
-#   - winrt-windows.ui.xaml[all] es la proyección PyWinRT del SDK de Windows
-#     (paquetes segmentados por namespace; [all] instala las dependencias
-#     recursivas). Solo instalable en Windows (wheels nativos).
+#   - Se instalan SOLO los namespaces PyWinRT que BusLens importa en
+#     buslens/presentation/winrt/winrt_types.py (xaml, xaml.controls,
+#     xaml.data, xaml.media, ui, ui.text, ui.viewmanagement, system).
+#     NO usar winrt-windows.ui.xaml[all]: arrastra toda la proyección
+#     WinRT (~500 MB, decenas de wheels) y hace que el CI se eternice.
 #   - pywin32 y wmi también son solo Windows; los markers de plataforma
 #     permiten que el CI de Linux audite sintaxis y tests sin ellos.
 #
@@ -13,4 +15,11 @@
 
 wmi>=1.5.0; sys_platform == 'win32'
 pywin32>=306; sys_platform == 'win32'
-winrt-windows.ui.xaml[all]>=1.0.0; sys_platform == 'win32'
+winrt-windows.system>=1.0.0; sys_platform == 'win32'
+winrt-windows.ui>=1.0.0; sys_platform == 'win32'
+winrt-windows.ui.text>=1.0.0; sys_platform == 'win32'
+winrt-windows.ui.viewmanagement>=1.0.0; sys_platform == 'win32'
+winrt-windows.ui.xaml>=1.0.0; sys_platform == 'win32'
+winrt-windows.ui.xaml.controls>=1.0.0; sys_platform == 'win32'
+winrt-windows.ui.xaml.data>=1.0.0; sys_platform == 'win32'
+winrt-windows.ui.xaml.media>=1.0.0; sys_platform == 'win32'

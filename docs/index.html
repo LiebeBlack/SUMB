@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BusLens — Monitor e Inspector de Protocolos USB</title>
+<meta name="description" content="BusLens: monitor e inspector de protocolos USB/hardware para Windows 10/11. WinUI 3, WMI, driver kernel KMDF y captura WinUSB con degradación automática multi-tier.">
+<style>
+/* ==================================================================
+   BusLens — Sitio web oficial (tema WinUI 3 / Fluent)
+   Autocontenido, sin dependencias externas.
+   ================================================================== */
+
+:root {
+  --accent: #4cc2ff;
+  --accent-strong: #60cdff;
+  --accent-soft: rgba(76, 194, 255, 0.14);
+  --bg: #1a1d22;
+  --bg-elev: rgba(255, 255, 255, 0.045);
+  --bg-hover: rgba(255, 255, 255, 0.07);
+  --border: rgba(255, 255, 255, 0.09);
+  --text: #f3f5f7;
+  --text-2: #a9b1bd;
+  --text-3: #7c8694;
+  --card: rgba(255, 255, 255, 0.035);
+  --danger: #ff99a4;
+  --ok: #6ccb5f;
+  --radius: 10px;
+  --radius-lg: 16px;
+  --shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+  --mono: "Cascadia Code", "Consolas", "SFMono-Regular", monospace;
+}
+
+html[data-theme="light"] {
+  --accent: #0067c0;
+  --accent-strong: #005fb8;
+  --accent-soft: rgba(0, 103, 192, 0.10);
+  --bg: #f3f6f9;
+  --bg-elev: rgba(255, 255, 255, 0.65);
+  --bg-hover: rgba(0, 0, 0, 0.045);
+  --border: rgba(0, 0, 0, 0.09);
+  --text: #1b1f24;
+  --text-2: #4b5563;
+  --text-3: #6b7280;
+  --card: rgba(255, 255, 255, 0.72);
+  --danger: #c42b1c;
+  --ok: #107c10;
+  --shadow: 0 8px 28px rgba(30, 40, 60, 0.12);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  transition: background 0.35s ease, color 0.35s ease;
+  overflow-x: hidden;
+}
+
+/* Fondo estilo Mica: degradados sutiles + blur */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background:
+    radial-gradient(1100px 500px at 15% -5%, rgba(76, 194, 255, 0.16), transparent 60%),
+    radial-gradient(900px 500px at 95% 15%, rgba(108, 203, 95, 0.08), transparent 55%),
+    radial-gradient(800px 700px at 50% 110%, rgba(120, 100, 255, 0.10), transparent 60%),
+    var(--bg);
+  transition: background 0.35s ease;
+}
+
+/* ---------- Utilidades ---------- */
+.container { max-width: 980px; margin: 0 auto; padding: 0 24px; }
+section { padding: 88px 0 40px; scroll-margin-top: 72px; }
+.eyebrow {
+  display: flex; width: fit-content; margin: 0 auto 14px;
+  align-items: center; justify-content: center; gap: 8px;
+  font-size: 12.5px; font-weight: 600; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid var(--border);
+  padding: 5px 12px; border-radius: 999px;
+}
+h2 { font-size: clamp(26px, 3.4vw, 36px); font-weight: 650; letter-spacing: -0.01em; text-align: center; }
+.sub { color: var(--text-2); max-width: 620px; margin: 10px auto 0; font-size: 16px; text-align: center; }
+code, .mono { font-family: var(--mono); font-size: 0.9em; }
+
+/* ---------- Navbar ---------- */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  backdrop-filter: blur(18px) saturate(1.4);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  border-bottom: 1px solid var(--border);
+  transition: box-shadow 0.3s ease;
+}
+nav.scrolled { box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18); }
+nav .container { display: flex; align-items: center; justify-content: space-between; height: 60px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 650; font-size: 17px; }
+.brand svg { width: 26px; height: 26px; }
+.nav-links { display: flex; align-items: center; gap: 4px; }
+.nav-links a {
+  color: var(--text-2); text-decoration: none; font-size: 14px;
+  padding: 7px 13px; border-radius: 8px; transition: background 0.2s, color 0.2s;
+}
+.nav-links a:hover { background: var(--bg-hover); color: var(--text); }
+#themeToggle {
+  border: 1px solid var(--border); background: var(--bg-elev); color: var(--text);
+  width: 38px; height: 38px; border-radius: 10px; cursor: pointer;
+  display: grid; place-items: center; margin-left: 8px; font-size: 16px;
+  transition: background 0.2s, transform 0.15s;
+}
+#themeToggle:hover { background: var(--bg-hover); }
+
+/* ---------- Hero ---------- */
+.hero { padding: 150px 0 60px; text-align: center; position: relative; }
+.hero .badges { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 22px; }
+.badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12.5px; font-weight: 600;
+  color: var(--text-2); background: var(--bg-elev);
+  border: 1px solid var(--border); border-radius: 999px; padding: 5px 13px;
+}
+.badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+.hero h1 {
+  font-size: clamp(40px, 7vw, 72px); font-weight: 700; letter-spacing: -0.03em;
+  line-height: 1.05; margin-top: 18px;
+}
+.hero h1 .grad {
+  background: linear-gradient(100deg, var(--accent-strong), #8fd0ff 45%, var(--accent-strong));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+html[data-theme="light"] .hero h1 .grad {
+  background: linear-gradient(100deg, #005fb8, #2f8fe0 50%, #005fb8);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.hero .lead { color: var(--text-2); max-width: 640px; margin: 22px auto 0; font-size: 18px; }
+.cta-row { display: flex; justify-content: center; gap: 12px; margin-top: 34px; flex-wrap: wrap; }
+.btn {
+  display: inline-flex; align-items: center; gap: 9px;
+  padding: 12px 24px; border-radius: 10px; font-size: 15px; font-weight: 600;
+  text-decoration: none; cursor: pointer; border: 1px solid transparent;
+  transition: transform 0.15s, box-shadow 0.2s, background 0.2s;
+}
+.btn-primary { background: var(--accent-strong); color: #062033; box-shadow: 0 4px 18px rgba(76, 194, 255, 0.28); }
+.btn-primary:hover { box-shadow: 0 8px 26px rgba(76, 194, 255, 0.4); }
+html[data-theme="light"] .btn-primary { color: #fff; }
+.btn-ghost { background: var(--bg-elev); color: var(--text); border-color: var(--border); }
+.btn-ghost:hover { background: var(--bg-hover); }
+
+/* ---------- Mock de la app (WinUI 3) ---------- */
+.mock-wrap { margin-top: 64px; display: flex; justify-content: center; }
+.mock {
+  width: min(880px, 100%);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--bg-elev);
+  backdrop-filter: blur(20px) saturate(1.3);
+  -webkit-backdrop-filter: blur(20px) saturate(1.3);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  text-align: left;
+}
+.mock-titlebar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 16px; border-bottom: 1px solid var(--border);
+  font-size: 13px; color: var(--text-2);
+}
+.mock-dots { display: flex; gap: 6px; }
+.mock-dots span { width: 11px; height: 11px; border-radius: 50%; }
+.mock-dots span:nth-child(1) { background: #ff5f57; }
+.mock-dots span:nth-child(2) { background: #febc2e; }
+.mock-dots span:nth-child(3) { background: #28c840; }
+.mock-toolbar { display: flex; gap: 8px; padding: 10px 16px; border-bottom: 1px solid var(--border); }
+.mock-tab {
+  font-size: 12.5px; color: var(--text-2); padding: 6px 14px; border-radius: 8px;
+  cursor: pointer; transition: background 0.2s, color 0.2s;
+}
+.mock-tab.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.mock-body { display: grid; grid-template-columns: 1.25fr 0.9fr; }
+@media (max-width: 760px) { .mock-body { grid-template-columns: 1fr; } }
+.mock-pane { padding: 16px; border-right: 1px solid var(--border); }
+.mock-pane:last-child { border-right: none; }
+.mock-title { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-3); margin-bottom: 12px; }
+.mock-item {
+  display: flex; align-items: center; gap: 11px;
+  padding: 10px 12px; border-radius: 9px; margin-bottom: 6px;
+  background: var(--card); border: 1px solid var(--border);
+  cursor: default; transition: background 0.2s, transform 0.15s, border-color 0.2s;
+  animation: itemIn 0.4s ease backwards;
+}
+.mock-item:hover { background: var(--bg-hover); border-color: var(--accent); }
+.mock-item .ico {
+  width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
+  background: var(--accent-soft); display: grid; place-items: center; color: var(--accent); font-size: 15px;
+}
+.mock-item .meta { flex: 1; min-width: 0; }
+.mock-item .name { font-size: 13.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mock-item .devid { font-size: 11px; color: var(--text-3); font-family: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vp { font-size: 10.5px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-family: var(--mono); flex-shrink: 0; }
+@keyframes itemIn { from { opacity: 0; } to { opacity: 1; } }
+
+.mock-stat {
+  display: flex; align-items: baseline; gap: 6px; margin: 4px 0 14px;
+}
+.mock-stat .num { font-size: 34px; font-weight: 700; font-family: var(--mono); color: var(--accent); }
+.mock-stat .lbl { font-size: 12.5px; color: var(--text-2); }
+.mock-log { font-size: 11.5px; font-family: var(--mono); color: var(--text-2); }
+.mock-log div { padding: 5px 0; border-bottom: 1px dashed var(--border); animation: itemIn 0.3s ease backwards; }
+.mock-log .ok { color: var(--ok); }
+.mock-log .warn { color: #ffb84d; }
+.mock-log .err { color: var(--danger); }
+.switch-row { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; gap: 10px; }
+.switch-row .lbl { font-size: 13px; color: var(--text-2); }
+.switch {
+  width: 44px; height: 24px; border-radius: 999px; border: 1px solid var(--border);
+  background: var(--bg-hover); cursor: pointer; position: relative;
+  transition: background 0.25s, border-color 0.25s; flex-shrink: 0;
+}
+.switch::after {
+  content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px;
+  border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.35);
+  transition: transform 0.25s cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+.switch.on { background: var(--accent); border-color: var(--accent); }
+.switch.on::after { transform: translateX(20px); }
+
+/* ---------- Grids de tarjetas ---------- */
+.grid { display: grid; gap: 16px; margin-top: 40px; }
+.grid-3 { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+.grid-4 { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 26px 24px;
+  transition: transform 0.25s, box-shadow 0.25s, border-color 0.25s;
+  position: relative; overflow: hidden; text-align: center;
+}
+.card:hover { transform: translateY(-2px); box-shadow: var(--shadow); border-color: rgba(76, 194, 255, 0.35); }
+.card .ico-lg {
+  width: 42px; height: 42px; border-radius: 11px; display: grid; place-items: center;
+  background: var(--accent-soft); color: var(--accent); font-size: 21px; margin: 0 auto 16px;
+}
+.card h3 { font-size: 16.5px; font-weight: 650; margin-bottom: 8px; }
+.card p { font-size: 13.8px; color: var(--text-2); }
+.card .tag {
+  position: absolute; top: 18px; right: 18px; font-size: 10.5px; font-weight: 700;
+  padding: 3px 10px; border-radius: 999px; letter-spacing: 0.04em;
+}
+.tag-beta { background: rgba(255, 184, 77, 0.16); color: #ffb84d; }
+.tag-core { background: var(--accent-soft); color: var(--accent); }
+.tag-usb { background: rgba(108, 203, 95, 0.16); color: var(--ok); }
+
+/* ---------- Arquitectura (capas) ---------- */
+.layers { display: grid; gap: 12px; margin-top: 40px; }
+.layer {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 22px 24px;
+  text-align: center;
+  transition: border-color 0.25s;
+}
+.layer:hover { border-color: rgba(76, 194, 255, 0.4); }
+.layer .n {
+  width: 46px; height: 46px; border-radius: 12px; flex-shrink: 0;
+  display: grid; place-items: center; font-weight: 700; font-size: 15px;
+  background: var(--accent-soft); color: var(--accent);
+}
+.layer .info { flex: 1; }
+.layer .info h3 { font-size: 16px; font-weight: 650; }
+.layer .info p { font-size: 13.5px; color: var(--text-2); }
+.layer .mods { font-family: var(--mono); font-size: 11.5px; color: var(--text-3); text-align: center; }
+.layer-arrow { text-align: center; color: var(--accent); font-size: 18px; opacity: 0.7; }
+
+/* ---------- Tiers ---------- */
+.tier-cards { display: grid; gap: 16px; margin-top: 40px; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); }
+.tier {
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  padding: 26px 24px; position: relative; text-align: center;
+  transition: box-shadow 0.25s;
+}
+.tier:hover { box-shadow: var(--shadow); }
+.tier .tier-no { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent); letter-spacing: 0.1em; }
+.tier h3 { font-size: 18px; margin: 8px 0 6px; font-weight: 650; }
+.tier .cap { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-3); margin-bottom: 12px; }
+.tier ul { list-style: none; text-align: left; display: inline-block; margin: 0 auto; }
+.tier li { font-size: 13.4px; color: var(--text-2); padding: 5px 0 5px 22px; position: relative; }
+.tier li::before { content: "◆"; position: absolute; left: 2px; top: 5px; font-size: 9px; color: var(--accent); }
+.tier.t1 { border-top: 3px solid var(--accent); }
+.tier.t2 { border-top: 3px solid var(--ok); }
+.tier.t3 { border-top: 3px solid var(--text-3); }
+.cascade { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 26px; font-family: var(--mono); font-size: 12.5px; color: var(--text-3); flex-wrap: wrap; }
+.cascade b { color: var(--accent); font-weight: 700; }
+.cascade .arr { color: var(--accent); opacity: 0.8; }
+
+/* ---------- Pipeline ---------- */
+.steps { display: grid; gap: 0; margin-top: 40px; counter-reset: step; }
+.step {
+  display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 18px 0; position: relative;
+  text-align: center;
+  border-bottom: 1px dashed var(--border);
+}
+.step:last-child { border-bottom: none; }
+.step .s-n {
+  counter-increment: step; flex-shrink: 0;
+  width: 36px; height: 36px; border-radius: 50%;
+  display: grid; place-items: center; font-weight: 700; font-size: 14px;
+  background: var(--accent-soft); color: var(--accent);
+}
+.step .s-n::before { content: counter(step); }
+.step .s-body h3 { font-size: 15.5px; font-weight: 650; }
+.step .s-body p { font-size: 13.5px; color: var(--text-2); }
+.step .s-body code { color: var(--accent); font-size: 12.5px; }
+
+/* ---------- Código ---------- */
+pre {
+  background: rgba(0, 0, 0, 0.35); border: 1px solid var(--border);
+  border-radius: 12px; padding: 18px 20px; overflow-x: auto;
+  font-family: var(--mono); font-size: 13px; line-height: 1.7;
+  margin-top: 14px; text-align: left;
+}
+html[data-theme="light"] pre { background: rgba(255, 255, 255, 0.85); }
+pre .cm { color: var(--text-3); }
+pre .k { color: var(--accent); font-weight: 600; }
+
+/* ---------- Seguridad / notas ---------- */
+.note {
+  display: flex; flex-direction: column; align-items: center; gap: 8px; background: var(--accent-soft);
+  border: 1px solid rgba(76, 194, 255, 0.25); border-radius: var(--radius-lg);
+  padding: 18px 20px; margin-top: 34px; font-size: 14px; color: var(--text-2); text-align: center;
+}
+.note .ico { font-size: 20px; }
+
+/* ---------- Footer ---------- */
+footer { margin-top: 80px; border-top: 1px solid var(--border); padding: 40px 0 50px; }
+footer .container { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
+footer .small { font-size: 12.5px; color: var(--text-3); }
+footer .small b { color: var(--text-2); }
+
+/* ---------- Animaciones de aparición ---------- */
+.reveal { opacity: 0; transform: translateY(10px); transition: opacity 0.45s ease, transform 0.45s ease; }
+.reveal.visible { opacity: 1; transform: none; }
+.reveal.d1 { transition-delay: 0.08s; }
+.reveal.d2 { transition-delay: 0.16s; }
+.reveal.d3 { transition-delay: 0.24s; }
+.reveal.d4 { transition-delay: 0.32s; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+  .reveal { opacity: 1; transform: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- ================= NAVBAR ================= -->
+<nav id="navbar">
+  <div class="container">
+    <div class="brand">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M7 5h10l2 3v11H5V8l2-3z" fill="none" stroke="var(--accent)" stroke-width="1.7" stroke-linejoin="round"/>
+        <path d="M5 8h14M12 8v11M9 13h6" stroke="var(--accent)" stroke-width="1.7" stroke-linecap="round"/>
+        <circle cx="12" cy="11" r="1.4" fill="var(--accent)"/>
+      </svg>
+      BusLens
+    </div>
+    <div class="nav-links">
+      <a href="#caracteristicas">Características</a>
+      <a href="#arquitectura">Arquitectura</a>
+      <a href="#tiers">Tiers</a>
+      <a href="#kernel">Kernel</a>
+      <a href="#devops">CI/CD</a>
+      <a href="#instalacion">Instalación</a>
+      <button id="themeToggle" title="Cambiar tema" aria-label="Cambiar tema">🌙</button>
+    </div>
+  </div>
+</nav>
+
+<!-- ================= HERO ================= -->
+<header class="hero">
+  <div class="container">
+    <div class="badges reveal">
+      <span class="badge"><span class="dot"></span> Windows 10/11</span>
+      <span class="badge"><span class="dot"></span> WinUI 3 · PyWinRT</span>
+      <span class="badge"><span class="dot"></span> WMI · Hotplug</span>
+      <span class="badge"><span class="dot"></span> Driver KMDF (Beta)</span>
+      <span class="badge"><span class="dot"></span> WinUSB</span>
+    </div>
+    <h1 class="reveal d1">Monitor e inspector<br><span class="grad">de protocolos USB</span></h1>
+    <p class="lead reveal d2">BusLens observa cada dispositivo USB de tu equipo: identificación VID/PID, estados de inserción y extracción en tiempo real, y captura de URBs con un driver de kernel opcional — con degradación automática entre tres niveles de capacidad.</p>
+    <div class="cta-row reveal d3">
+      <a class="btn btn-primary" href="#instalacion">Comenzar</a>
+      <a class="btn btn-ghost" href="#arquitectura">Explorar la arquitectura</a>
+    </div>
+
+    <!-- Mock de la app -->
+    <div class="mock-wrap reveal d4">
+      <div class="mock" id="mock">
+        <div class="mock-titlebar">
+          <div class="mock-dots"><span></span><span></span><span></span></div>
+          <span style="margin-left:8px">BusLens — Monitor USB</span>
+        </div>
+        <div class="mock-toolbar">
+          <span class="mock-tab active">Dispositivos</span>
+          <span class="mock-tab">Eventos</span>
+          <span class="mock-tab">Ajustes</span>
+        </div>
+        <div class="mock-body">
+          <div class="mock-pane">
+            <div class="mock-title">Dispositivos USB (en vivo)</div>
+            <div id="mockList"></div>
+          </div>
+          <div class="mock-pane">
+            <div class="mock-title">Telemetría</div>
+            <div class="mock-stat">
+              <span class="num" id="urbCount">0</span>
+              <span class="lbl">URBs capturados · Tier 1</span>
+            </div>
+            <div class="switch-row">
+              <span class="lbl">Inspector de kernel (Beta)</span>
+              <div class="switch" id="kernelSwitch" role="switch" aria-checked="false" tabindex="0"></div>
+            </div>
+            <div class="mock-title" style="margin-top:16px">Eventos</div>
+            <div class="mock-log" id="mockLog">
+              <div class="ok">▲ USB\VID_045E&amp;PID_0779 insertado</div>
+              <div>✓ Hotplug WMI activo (suscripción __InstanceOperationEvent)</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ================= CARACTERÍSTICAS ================= -->
+<section id="caracteristicas">
+  <div class="container">
+    <span class="eyebrow reveal">Características</span>
+    <h2 class="reveal">Todo lo que un inspector USB necesita</h2>
+    <p class="sub reveal">Diseñado con Clean Architecture y pensado para funcionar siempre: si un componente falla, el siguiente toma el relevo.</p>
+    <div class="grid grid-3">
+      <div class="card reveal">
+        <div class="ico-lg">📡</div>
+        <span class="tag tag-core">NÚCLEO</span>
+        <h3>Hotplug en tiempo real</h3>
+        <p>Suscripción WMI a <code>__InstanceOperationEvent</code> sobre <code>Win32_PnPEntity</code> con respaldo automático a polling (1.5 s) si el evento se rompe.</p>
+      </div>
+      <div class="card reveal d1">
+        <div class="ico-lg">🔍</div>
+        <span class="tag tag-core">NÚCLEO</span>
+        <h3>Parsing VID / PID</h3>
+        <p>Extracción con regex de <code>VID_xxxx</code> y <code>PID_yyyy</code> desde <code>USB\VID_045E&amp;PID_0779\…</code>, case-insensitive y con fallback por segmentos.</p>
+      </div>
+      <div class="card reveal d2">
+        <div class="ico-lg">🧵</div>
+        <span class="tag tag-core">NÚCLEO</span>
+        <h3>Thread-safe por diseño</h3>
+        <p>Cada hilo WMI aísla COM con <code>CoInitializeEx</code>/<code>CoUninitialize</code> y todo cambio de UI se despacha al hilo principal de WinUI 3.</p>
+      </div>
+      <div class="card reveal">
+        <div class="ico-lg">⚙️</div>
+        <span class="tag tag-beta">BETA</span>
+        <h3>Inspector de kernel</h3>
+        <p>Driver KMDF que captura URBs e IRPs en ring 0 mediante IOCTLs con ring buffer protegido. Se activa con un ToggleSwitch en Ajustes.</p>
+      </div>
+      <div class="card reveal d1">
+        <div class="ico-lg">🔌</div>
+        <span class="tag tag-usb">TIER 2</span>
+        <h3>Captura WinUSB nativa</h3>
+        <p>Sin driver: lee pipes bulk/interrupt con <code>winusb.sys</code> y SetupAPI puro (ctypes), sin dependencias externas.</p>
+      </div>
+      <div class="card reveal d2">
+        <div class="ico-lg">🛡️</div>
+        <span class="tag tag-core">RESILIENCIA</span>
+        <h3>Degradación automática</h3>
+        <p>Cascada Kernel → WinUSB → WMI. La aplicación nunca colapsa: cada nivel cierra sus recursos y notifica el motivo del fallback.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= ARQUITECTURA ================= -->
+<section id="arquitectura">
+  <div class="container">
+    <span class="eyebrow reveal">Clean Architecture</span>
+    <h2 class="reveal">Capas desacopladas, reglas claras</h2>
+    <p class="sub reveal">Domain → Application → Infrastructure → Presentation. La presentación no contiene WMI ni parsing; la infraestructura se inyecta; todo es testeable.</p>
+    <div class="layers">
+      <div class="layer reveal">
+        <div class="n">01</div>
+        <div class="info"><h3>Domain</h3><p>Modelos puros: <code>UsbDevice</code>, parser VID/PID, eventos de cambio de dispositivos.</p></div>
+        <div class="mods">usb_device.py · usb_events.py</div>
+      </div>
+      <div class="layer-arrow reveal">↓</div>
+      <div class="layer reveal">
+        <div class="n">02</div>
+        <div class="info"><h3>Application</h3><p>Servicios y ViewModels: <code>BusService</code>, <code>TierManager</code>, dispatcher thread-safe, observadores.</p></div>
+        <div class="mods">bus_service.py · tier_manager.py</div>
+      </div>
+      <div class="layer-arrow reveal">↓</div>
+      <div class="layer reveal">
+        <div class="n">03</div>
+        <div class="info"><h3>Infrastructure</h3><p>WMI thread-safe, SetupAPI, WinUSB, puente SCM del driver y elevación UAC puntual.</p></div>
+        <div class="mods">wmi/ · usb/ · kernel/</div>
+      </div>
+      <div class="layer-arrow reveal">↓</div>
+      <div class="layer reveal">
+        <div class="n">04</div>
+        <div class="info"><h3>Presentation</h3><p>WinUI 3 vía PyWinRT con degradación visual fluida (Mica/Acrylic opcionales) y panel de Ajustes.</p></div>
+        <div class="mods">winrt/ · winrt_app.py</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= TIERS ================= -->
+<section id="tiers">
+  <div class="container">
+    <span class="eyebrow reveal">Motor híbrido</span>
+    <h2 class="reveal">Tres niveles, una sola telemetría</h2>
+    <p class="sub reveal">Máxima capacidad primero. El <code>TierManager</code> decide en cascada y el usuario siempre ve un estado claro en Ajustes.</p>
+    <div class="tier-cards">
+      <div class="tier t1 reveal">
+        <div class="tier-no">TIER 1</div>
+        <h3>Kernel KMDF dinámico</h3>
+        <div class="cap">Máxima capacidad · Ring 0</div>
+        <ul>
+          <li>Driver cargado bajo demanda, sin persistencia en boot</li>
+          <li>Captura de URBs (Submit URB) e IRPs en tiempo real</li>
+          <li>IOCTLs <code>METHOD_BUFFERED</code> + ring buffer con spinlock</li>
+          <li>Elevación UAC única al activar; <code>DeleteService</code> al salir</li>
+        </ul>
+      </div>
+      <div class="tier t2 reveal d1">
+        <div class="tier-no">TIER 2</div>
+        <h3>WinUSB user-space</h3>
+        <div class="cap">Alta capacidad · Ring 3</div>
+        <ul>
+          <li>API nativa <code>winusb.sys</code> sin drivers extra</li>
+          <li>Enumeración con SetupAPI puro (ctypes)</li>
+          <li>Lectura de pipes bulk/interrupt en hilo daemon</li>
+          <li>Funciona si el Test-Signing está deshabilitado</li>
+        </ul>
+      </div>
+      <div class="tier t3 reveal d2">
+        <div class="tier-no">TIER 3</div>
+        <h3>Estándar · WMI</h3>
+        <div class="cap">Operativa total · Sin privilegios</div>
+        <ul>
+          <li>Consulta <code>Win32_PnPEntity</code> por WQL</li>
+          <li>Hotplug por <code>__InstanceOperationEvent</code> + polling</li>
+          <li>Identificación VID/PID y estados de dispositivos</li>
+          <li>Nunca falla: la app siempre queda funcional</li>
+        </ul>
+      </div>
+    </div>
+    <div class="cascade reveal">
+      <b>T1</b> Kernel&nbsp;<span class="arr">→</span>&nbsp;<b>T2</b> WinUSB&nbsp;<span class="arr">→</span>&nbsp;<b>T3</b> WMI&nbsp;&nbsp;·&nbsp;&nbsp;siempre al mejor nivel disponible
+    </div>
+  </div>
+</section>
+
+<!-- ================= KERNEL ================= -->
+<section id="kernel">
+  <div class="container">
+    <span class="eyebrow reveal">Modo Avanzado (Beta)</span>
+    <h2 class="reveal">El driver que no toca tu sistema</h2>
+    <p class="sub reveal">Un filtro KMDF minimalista, sin persistencia, sin BSOD por diseño y con limpieza total al cerrar.</p>
+    <div class="grid grid-3">
+      <div class="card reveal">
+        <div class="ico-lg">📦</div>
+        <h3>Carga dinámica</h3>
+        <p>El <code>.sys</code> se copia a <code>%TEMP%\BusLens\</code>, se registra con <code>CreateServiceW</code> (demand-start) y se inicia con <code>StartServiceW</code>. Cero claves en boot.</p>
+      </div>
+      <div class="card reveal d1">
+        <div class="ico-lg">🔐</div>
+        <h3>Seguridad en ring 0</h3>
+        <p>Adjunto solo bajo demanda (<code>IOCTL_ATTACH</code>), passthrough con completion, <code>__try/__except</code> en la lectura de URBs y spinlock en el ring buffer.</p>
+      </div>
+      <div class="card reveal d2">
+        <div class="ico-lg">🧹</div>
+        <h3>Purge garantizado</h3>
+        <p>Al desactivar o cerrar: <code>ControlService(STOP)</code> + <code>DeleteService</code> + borrado del archivo temporal. No quedan recursos colgados en el kernel.</p>
+      </div>
+    </div>
+    <div class="note reveal">
+      <span class="ico">💡</span>
+      <div><b>Test-Signing:</b> si el kernel rechaza la imagen (<code>ERROR_INVALID_IMAGE_HASH</code>), BusLens degrada automáticamente a WinUSB o WMI. Para usar el driver, compílalo con el WDK y habilita <code>bcdedit /set testsigning on</code> (o firma el binario).</div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= DEVOPS ================= -->
+<section id="devops">
+  <div class="container">
+    <span class="eyebrow reveal">DevOps</span>
+    <h2 class="reveal">Del commit al instalador</h2>
+    <p class="sub reveal">GitHub Actions compila el ejecutable único, empaqueta el instalador Inno Setup y publica el Release automáticamente.</p>
+    <div class="steps">
+      <div class="step reveal">
+        <div class="s-n"></div>
+        <div class="s-body">
+          <h3>Tests y auditoría</h3>
+          <p>En <code>windows-latest</code> y <code>ubuntu-latest</code>: <code>check_syntax.py</code> + 68 tests unitarios (dominio, aplicación, WMI, kernel).</p>
+        </div>
+      </div>
+      <div class="step reveal">
+        <div class="s-n"></div>
+        <div class="s-body">
+          <h3>PyInstaller onefile</h3>
+          <p><code>build_exe.py</code> genera <code>BusLens.exe</code> con hooks para <code>winrt-windows.*</code>, <code>pywin32</code> y manifest DPI-aware <code>PerMonitorV2</code>.</p>
+        </div>
+      </div>
+      <div class="step reveal">
+        <div class="s-n"></div>
+        <div class="s-body">
+          <h3>Inno Setup 6</h3>
+          <p>Instalador x64 moderno (<code>WizardStyle=modern</code>): accesos directos, registro de versión, elevación correcta y desinstalación limpia sin residuos.</p>
+        </div>
+      </div>
+      <div class="step reveal">
+        <div class="s-n"></div>
+        <div class="s-body">
+          <h3>Release automático</h3>
+          <p>Un push a <code>main</code> sube los artefactos; un tag <code>v*</code> publica <code>BusLens_Setup_vX.Y.Z.exe</code> en GitHub Releases.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= INSTALACIÓN ================= -->
+<section id="instalacion">
+  <div class="container">
+    <span class="eyebrow reveal">Puesta en marcha</span>
+    <h2 class="reveal">Instalación y uso</h2>
+    <p class="sub reveal">Tres formas de ejecutar BusLens: desde el código fuente, como ejecutable único o con el instalador.</p>
+    <div class="grid grid-3" style="margin-top:34px">
+      <div class="card reveal">
+        <div class="ico-lg">🐍</div>
+        <h3>Desde el código</h3>
+        <pre><span class="cm"># Windows 10/11 · Python 3.11+ x64</span>
+<span class="k">pip</span> install -r requirements.txt
+<span class="k">python</span> run.py</pre>
+      </div>
+      <div class="card reveal d1">
+        <div class="ico-lg">📦</div>
+        <h3>Ejecutable único</h3>
+        <pre><span class="cm"># Compilar con PyInstaller</span>
+<span class="k">python</span> build_exe.py --clean
+<span class="cm"># Resultado: dist\BusLens.exe</span></pre>
+      </div>
+      <div class="card reveal d2">
+        <div class="ico-lg">🖥️</div>
+        <h3>Instalador</h3>
+        <pre><span class="cm"># Con Inno Setup 6 instalado</span>
+ISCC installer\buslens_setup.iss
+<span class="cm"># Resultado: BusLens_Setup_v1.0.0.exe</span></pre>
+      </div>
+    </div>
+    <div class="note reveal">
+      <span class="ico">🛡️</span>
+      <div><b>Sin PyWinRT:</b> si la máquina no tiene la proyección WinUI 3, la aplicación sale con un mensaje claro (código 1) en lugar de un traceback. En Windows con <code>pip install -r requirements.txt</code> todo funciona.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= FOOTER ================= -->
+<footer>
+  <div class="container">
+    <div class="small">BusLens · Monitor e Inspector de Protocolos USB — Windows 10/11 · WinUI 3 · WMI · KMDF</div>
+    <div class="small"><b>v1.0.0</b> · Modo Avanzado (Beta) · Driver firmado requerido</div>
+  </div>
+</footer>
+
+<script>
+/* ============ Tema claro/oscuro ============ */
+const toggle = document.getElementById("themeToggle");
+const stored = localStorage.getItem("buslens-theme");
+if (stored) document.documentElement.dataset.theme = stored;
+const syncIcon = () => {
+  toggle.textContent = document.documentElement.dataset.theme === "dark" ? "🌙" : "☀️";
+};
+syncIcon();
+toggle.addEventListener("click", () => {
+  const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+  document.documentElement.dataset.theme = next;
+  localStorage.setItem("buslens-theme", next);
+  syncIcon();
+});
+
+/* ============ Navbar con sombra al hacer scroll ============ */
+const navbar = document.getElementById("navbar");
+addEventListener("scroll", () => navbar.classList.toggle("scrolled", scrollY > 10), { passive: true });
+
+/* ============ Aparición al hacer scroll ============ */
+const io = new IntersectionObserver(entries => {
+  for (const e of entries) {
+    if (e.isIntersecting) { e.target.classList.add("visible"); io.unobserve(e.target); }
+  }
+}, { threshold: 0.12 });
+document.querySelectorAll(".reveal").forEach(el => io.observe(el));
+
+/* ============ Mock de la app ============ */
+const DEVICES = [
+  { ico: "🔌", name: "Teclado USB estándar", devid: "USB\\VID_045E&PID_0779\\1a2b3c", vp: "VID_045E" },
+  { ico: "🖱️", name: "Mouse compatible HID", devid: "USB\\VID_046D&PID_C52B\\x1y2z3", vp: "VID_046D" },
+  { ico: "💾", name: "Unidad flash USB 3.0", devid: "USB\\VID_0781&PID_5583\\deadbeef", vp: "VID_0781" },
+  { ico: "📷", name: "Cámara USB UVC", devid: "USB\\VID_0C45&PID_6366\\cam01", vp: "VID_0C45" },
+];
+const listEl = document.getElementById("mockList");
+const renderList = () => {
+  listEl.innerHTML = DEVICES.map((d, i) => `
+    <div class="mock-item" style="animation-delay:${i * 70}ms">
+      <div class="ico">${d.ico}</div>
+      <div class="meta"><div class="name">${d.name}</div><div class="devid">${d.devid}</div></div>
+      <span class="vp">${d.vp}</span>
+    </div>`).join("");
+};
+renderList();
+
+const logEl = document.getElementById("mockLog");
+const log = (msg, cls = "") => {
+  const div = document.createElement("div");
+  if (cls) div.className = cls;
+  div.textContent = msg;
+  logEl.prepend(div);
+  while (logEl.children.length > 6) logEl.lastChild.remove();
+};
+
+/* Contador de URBs simulado */
+const urbEl = document.getElementById("urbCount");
+let urbs = 0;
+const urbTimer = setInterval(() => {
+  urbs += 1 + Math.floor(Math.random() * 4);
+  urbEl.textContent = urbs.toLocaleString("es");
+}, 1200);
+
+/* Toggle del inspector de kernel */
+const kSwitch = document.getElementById("kernelSwitch");
+let kernelOn = false;
+kSwitch.addEventListener("click", () => {
+  kernelOn = !kernelOn;
+  kSwitch.classList.toggle("on", kernelOn);
+  kSwitch.setAttribute("aria-checked", String(kernelOn));
+  if (kernelOn) {
+    log("▲ Elevación UAC solicitada…", "warn");
+    setTimeout(() => log("✓ Tier 1 activo: buslens_filter.sys montado", "ok"), 700);
+    setTimeout(() => log("✓ Captura de URBs iniciada (ring buffer)", "ok"), 1300);
+  } else {
+    log("◇ Purge: servicio detenido y eliminado", "warn");
+    setTimeout(() => log("✓ Tier 3 activo: Modo Estándar (WMI)", "ok"), 600);
+  }
+});
+kSwitch.addEventListener("keydown", e => {
+  if (e.key === "Enter" || e.key === " ") { e.preventDefault(); kSwitch.click(); }
+});
+
+/* Inserción/extracción simulada de dispositivos */
+let removed = false;
+setInterval(() => {
+  if (removed) {
+    DEVICES.splice(1, 0, { ico: "🖱️", name: "Mouse compatible HID", devid: "USB\\VID_046D&PID_C52B\\x1y2z3", vp: "VID_046D" });
+    log("▲ Mouse compatible HID insertado", "ok");
+  } else {
+    DEVICES.splice(1, 1);
+    log("▼ Mouse compatible HID extraído");
+  }
+  removed = !removed;
+  renderList();
+}, 9000);
+</script>
+</body>
+</html>

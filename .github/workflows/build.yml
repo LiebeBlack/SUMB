@@ -14,6 +14,8 @@ env:
 jobs:
   # -------------------------------------------------------------------------
   # Auditoría + tests unitarios (rápido, corre en push y PR)
+  # Nota: los tests usan fakes y no requieren WinRT/WMI/pywin32, así que NO
+  # se instalan dependencias aquí (evita descargas eternas en CI).
   # -------------------------------------------------------------------------
   test:
     name: Test (${{ matrix.os }})
@@ -32,51 +34,11 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           architecture: ${{ env.PYTHON_ARCH }}
 
-      - name: Instalar dependencias
-        run: python -m pip install --upgrade pip && pip install -r requirements.txt
-
       - name: Auditoría de sintaxis e importabilidad
         run: python scripts/check_syntax.py
 
       - name: Tests unitarios
         run: python -m unittest discover -s tests -v
-
-  # -------------------------------------------------------------------------
-  # Build: PyInstaller + Inno Setup (solo push a main o tags)
-  # -------------------------------------------------------------------------
-  build:
-    name: Build EXE + Installer
-    needs: [test, kernel-driver]
-    if: github.event_name == 'push'
-    runs-on: windows-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Descargar driver compilado (si el WDK lo produjo)
-        uses: actions/download-artifact@v4
-        with:
-          name: buslens-kernel-driver
-          path: kernel
-        continue-on-error: true
-
-      - name: Setup Python ${{ env.PYTHON_VERSION }} (${{ env.PYTHON_ARCH }})
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          architecture: ${{ env.PYTHON_ARCH }}
-
-      - name: Instalar dependencias (runtime + build)
-        run: |
-          pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -r requirements-dev.txt
-
-      - name: Generar icono
-        run: python scripts/make_icon.py
-
-      - name: Compilar BusLens.exe (PyInstaller onefile)
-        run: python build_exe.py --clean
 
   # -------------------------------------------------------------------------
   # Driver del Modo Avanzado (Beta): WDK + MSBuild (best-effort)
@@ -116,6 +78,43 @@ jobs:
             kernel/x64/Release/buslens_filter.sys
             kernel/x64/Release/buslens_filter.inf
           if-no-files-found: warn
+
+  # -------------------------------------------------------------------------
+  # Build: PyInstaller + Inno Setup (solo push a main o tags)
+  # -------------------------------------------------------------------------
+  build:
+    name: Build EXE + Installer
+    needs: [test, kernel-driver]
+    if: github.event_name == 'push'
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Descargar driver compilado (si el WDK lo produjo)
+        uses: actions/download-artifact@v4
+        with:
+          name: buslens-kernel-driver
+          path: kernel
+        continue-on-error: true
+
+      - name: Setup Python ${{ env.PYTHON_VERSION }} (${{ env.PYTHON_ARCH }})
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          architecture: ${{ env.PYTHON_ARCH }}
+
+      - name: Instalar dependencias (runtime + build)
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Generar icono
+        run: python scripts/make_icon.py
+
+      - name: Compilar BusLens.exe (PyInstaller onefile)
+        run: python build_exe.py --clean
 
       - name: Exponer versión de la app
         id: version
