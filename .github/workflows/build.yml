@@ -50,7 +50,9 @@ jobs:
 
       - name: Instalar Windows Driver Kit (WDK)
         shell: pwsh
-        run: choco install wdk --no-progress -y
+        run: |
+          # Descargar e instalar WDK 10 usando winget
+          winget install Microsoft.WindowsDriverKit --accept-source-agreements --accept-package-agreements
 
       - name: Compilar buslens_filter.sys (x64 Release)
         shell: pwsh
@@ -80,18 +82,17 @@ jobs:
   build:
     name: Build EXE + Installer
     needs: [test, kernel-driver]
-    if: github.event_name == 'push' && needs.kernel-driver.result == 'success'
+    if: github.event_name == 'push'
     runs-on: windows-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Descargar driver compilado (si el WDK lo produjo)
+      - name: Descargar driver compilado
         uses: actions/download-artifact@v4
         with:
           name: buslens-kernel-driver
           path: kernel
-        continue-on-error: true
 
       - name: Setup Python ${{ env.PYTHON_VERSION }} (${{ env.PYTHON_ARCH }})
         uses: actions/setup-python@v5
