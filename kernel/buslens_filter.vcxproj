@@ -15,7 +15,7 @@
     <ProjectGuid>{E5F4D3C2-B1A0-4E6F-9D8C-7B6A5E4F3D2C}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>buslens_filter</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.26100.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
     <ProjectName>buslens_filter</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
