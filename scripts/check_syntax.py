@@ -70,14 +70,14 @@ def check_layer_importability() -> bool:
             ok = False
 
     try:
-        from buslens.infrastructure.wmi.wmi_client import WmiClient
+        from BusLens.infrastructure.wmi.wmi_client import WmiClient
         client = WmiClient()
         print(f"[INFO] WmiClient creado. WMI disponible: {client.available}")
     except Exception as exc:
         print(f"[WARN] WmiClient no pudo instanciarse: {exc}")
 
     try:
-        from buslens.domain.models.usb_device import UsbDevice
+        from BusLens.domain.models.usb_device import UsbDevice
         d = UsbDevice(pnp_device_id=r"USB\VID_1234&PID_5678\dev", name="TestDevice")
         print(f"[OK] UsbDevice parseado: vendor={d.vendor_id}, product={d.product_id}")
     except Exception as exc:
@@ -85,8 +85,8 @@ def check_layer_importability() -> bool:
         ok = False
 
     try:
-        from buslens.application.services.bus_service import BusService
-        from buslens.application.viewmodels.main_viewmodel import MainViewModel
+        from BusLens.application.services.bus_service import BusService
+        from BusLens.application.viewmodels.main_viewmodel import MainViewModel
         svc = BusService()
         vm = MainViewModel(svc)
         svc.stop()
