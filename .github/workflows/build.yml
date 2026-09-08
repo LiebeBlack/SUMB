@@ -51,8 +51,11 @@ jobs:
       - name: Instalar Windows Driver Kit (WDK)
         shell: pwsh
         run: |
-          # Descargar e instalar WDK 10 usando winget
-          winget install Microsoft.WindowsDriverKit --accept-source-agreements --accept-package-agreements
+          # Descargar WDK 10 desde Microsoft
+          $wdkUrl = "https://go.microsoft.com/fwlink/?linkid=2237672"
+          $wdkPath = "$env:TEMP\wdksetup.exe"
+          Invoke-WebRequest -Uri $wdkUrl -OutFile $wdkPath
+          Start-Process $wdkPath -ArgumentList "/features + /quiet /norestart" -Wait
 
       - name: Compilar buslens_filter.sys (x64 Release)
         shell: pwsh
