@@ -1,0 +1,40 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+*.egg
+*.whl
+*.tar.gz
+
+# Virtual environments
+.venv/
+venv/
+env/
+env.bak/
+
+# IDEs & editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs y debugging
+*.log
+*.tmp
+
+# Archivos locales de configuración opcionales
+local_settings.py
+config.local.*
+
+# Directorios internos del proyecto que no se versionan
+freebuff/
