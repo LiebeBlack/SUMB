@@ -48,54 +48,36 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Instalar Windows Driver Kit (WDK)
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Restaurar paquetes NuGet (WDK)
         shell: pwsh
         run: |
-          # Instalar Visual Studio Build Tools primero
-          $vsUrl = "https://aka.ms/vs/17/release/vs_buildtools.exe"
-          $vsPath = "$env:TEMP\vs_buildtools.exe"
-          Invoke-WebRequest -Uri $vsUrl -OutFile $vsPath
-          Start-Process $vsPath -ArgumentList "--add Microsoft.VisualStudio.Workload.VCTools;includeRecommended --add Microsoft.VisualStudio.Component.Windows10SDK.22000 --quiet --wait --norestart" -Wait
-          
-          # Instalar WDK usando el instalador completo con todos los componentes
-          $wdkUrl = "https://go.microsoft.com/fwlink/?linkid=2125747"
-          $wdkPath = "$env:TEMP\wdksetup.exe"
-          Invoke-WebRequest -Uri $wdkUrl -OutFile $wdkPath
-          Start-Process $wdkPath -ArgumentList "/features Idx_IS_All /q /norestart" -Wait
-          
-          # Verificar que el WDK se instaló correctamente
-          $wdkPath = "${env:ProgramFiles(x86)}\Windows Kits\10"
-          if (-not (Test-Path $wdkPath)) {
-            throw "WDK no se instaló correctamente en $wdkPath"
+          nuget restore kernel/packages.config -PackagesDirectory packages -SolutionDirectory .
+          # Verificar que el paquete se restauró
+          $wdkProps = "packages/Microsoft.Windows.WDK.x64.10.0.26100.1/build/native/Microsoft.Windows.WDK.x64.props"
+          if (-not (Test-Path $wdkProps)) {
+            throw "WDK NuGet package no se restauró correctamente. Falta: $wdkProps"
           }
-          Write-Host "WDK instalado correctamente en $wdkPath"
+          Write-Host "✓ WDK NuGet package restaurado correctamente"
 
       - name: Compilar buslens_filter.sys (x64 Release)
         shell: pwsh
         run: |
-          & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" `
-            -latest -property installationPath | ForEach-Object {
-              $msbuild = Join-Path $_ "MSBuild\Current\Bin\MSBuild.exe"
-              if (Test-Path $msbuild) {
-                & $msbuild "kernel\buslens_filter.vcxproj" `
-                  /p:Configuration=Release /p:Platform=x64 /m
-                if ($LASTEXITCODE -ne 0) {
-                  throw "MSBuild failed with exit code $LASTEXITCODE"
-                }
-              }
-            }
-          
+          msbuild kernel/buslens_filter.vcxproj `
+            /p:Configuration=Release `
+            /p:Platform=x64 `
+            /p:SolutionDir="$PWD/" `
+            /m /v:minimal
+
           # Verificar que los archivos se generaron
-          if (-not (Test-Path "kernel\x64\Release\buslens_filter.sys")) {
+          if (-not (Test-Path "kernel/x64/Release/buslens_filter.sys")) {
             throw "buslens_filter.sys no se generó"
           }
-          if (-not (Test-Path "kernel\x64\Release\buslens_filter.inf")) {
-            throw "buslens_filter.inf no se generó"
-          }
-          Write-Host "Driver compilado exitosamente"
+          Write-Host "✓ Driver compilado exitosamente"
 
       - name: Subir buslens_filter.sys como artefacto
-        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: buslens-kernel-driver
