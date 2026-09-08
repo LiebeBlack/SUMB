@@ -18,16 +18,23 @@
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
     <ProjectName>buslens_filter</ProjectName>
   </PropertyGroup>
+  <PropertyGroup Label="WDKPaths">
+    <WDKRoot Condition="'$(WDKRoot)' == '' and Exists('$(SolutionDir)packages\Microsoft.Windows.WDK.x64.10.0.26100.1\c')">$(SolutionDir)packages\Microsoft.Windows.WDK.x64.10.0.26100.1\c</WDKRoot>
+    <WDKRoot Condition="'$(WDKRoot)' == '' and Exists('..\packages\Microsoft.Windows.WDK.x64.10.0.26100.1\c')">..\packages\Microsoft.Windows.WDK.x64.10.0.26100.1\c</WDKRoot>
+    <WDKContentRoot Condition="'$(WDKContentRoot)' == '' and '$(WDKRoot)' != ''">$(WDKRoot)\</WDKContentRoot>
+  </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Driver</ConfigurationType>
     <PlatformToolset>WindowsKernelModeDriver10.0</PlatformToolset>
     <TargetVersion>Windows10</TargetVersion>
+    <DriverType>KMDF</DriverType>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Driver</ConfigurationType>
     <PlatformToolset>WindowsKernelModeDriver10.0</PlatformToolset>
     <TargetVersion>Windows10</TargetVersion>
+    <DriverType>KMDF</DriverType>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -59,10 +66,13 @@
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <AdditionalIncludeDirectories>$(WDKRoot)\Include\10.0.26100.0\km;$(WDKRoot)\Include\10.0.26100.0\km\crt;$(WDKRoot)\Include\10.0.26100.0\shared;$(WDKRoot)\Include\wdf\kmdf\1.33;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Native</SubSystem>
+      <AdditionalLibraryDirectories>$(WDKRoot)\Lib\10.0.26100.0\km\x64;$(WDKRoot)\Lib\wdf\kmdf\x64\1.33;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>BufferOverflowK.lib;ntoskrnl.lib;hal.lib;wmilib.lib;wdmsec.lib;WdfLdr.lib;WdfDriverEntry.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -72,10 +82,13 @@
       <BufferSecurityCheck>true</BufferSecurityCheck>
       <ConformanceMode>true</ConformanceMode>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <AdditionalIncludeDirectories>$(WDKRoot)\Include\10.0.26100.0\km;$(WDKRoot)\Include\10.0.26100.0\km\crt;$(WDKRoot)\Include\10.0.26100.0\shared;$(WDKRoot)\Include\wdf\kmdf\1.33;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Native</SubSystem>
+      <AdditionalLibraryDirectories>$(WDKRoot)\Lib\10.0.26100.0\km\x64;$(WDKRoot)\Lib\wdf\kmdf\x64\1.33;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>BufferOverflowK.lib;ntoskrnl.lib;hal.lib;wmilib.lib;wdmsec.lib;WdfLdr.lib;WdfDriverEntry.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -90,9 +103,7 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
     <!-- WDK targets from NuGet package -->
-    <Import Project="$(SolutionDir)packages\Microsoft.Windows.WDK.x64.10.0.26100.1\build\native\Microsoft.Windows.WDK.x64.targets"
-            Condition="Exists('$(SolutionDir)packages\Microsoft.Windows.WDK.x64.10.0.26100.1\build\native\Microsoft.Windows.WDK.x64.targets')" />
-    <Import Project="..\packages\Microsoft.Windows.WDK.x64.10.0.26100.1\build\native\Microsoft.Windows.WDK.x64.targets"
-            Condition="!Exists('$(SolutionDir)packages\Microsoft.Windows.WDK.x64.10.0.26100.1\build\native\Microsoft.Windows.WDK.x64.targets') And Exists('..\packages\Microsoft.Windows.WDK.x64.10.0.26100.1\build\native\Microsoft.Windows.WDK.x64.targets')" />
+    <Import Project="$(WDKRoot)\build\WindowsDriver.Common.targets"
+            Condition="'$(WDKRoot)' != '' and Exists('$(WDKRoot)\build\WindowsDriver.Common.targets')" />
   </ImportGroup>
 </Project>

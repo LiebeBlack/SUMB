@@ -68,7 +68,7 @@ jobs:
           msbuild kernel/buslens_filter.vcxproj `
             /p:Configuration=Release `
             /p:Platform=x64 `
-            /p:SolutionDir="$PWD/" `
+            /p:SolutionDir="$((Get-Location).Path)\" `
             /m /v:minimal
 
           # Verificar que los archivos se generaron
