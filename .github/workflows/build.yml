@@ -66,8 +66,20 @@ jobs:
               if (Test-Path $msbuild) {
                 & $msbuild "kernel\buslens_filter.vcxproj" `
                   /p:Configuration=Release /p:Platform=x64 /m
+                if ($LASTEXITCODE -ne 0) {
+                  throw "MSBuild failed with exit code $LASTEXITCODE"
+                }
               }
             }
+          
+          # Verificar que los archivos se generaron
+          if (-not (Test-Path "kernel\x64\Release\buslens_filter.sys")) {
+            throw "buslens_filter.sys no se generó"
+          }
+          if (-not (Test-Path "kernel\x64\Release\buslens_filter.inf")) {
+            throw "buslens_filter.inf no se generó"
+          }
+          Write-Host "Driver compilado exitosamente"
 
       - name: Subir buslens_filter.sys como artefacto
         if: ${{ !cancelled() }}
