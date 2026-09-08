@@ -51,11 +51,11 @@ jobs:
       - name: Instalar Windows Driver Kit (WDK)
         shell: pwsh
         run: |
-          # Descargar WDK 10 desde Microsoft
-          $wdkUrl = "https://go.microsoft.com/fwlink/?linkid=2237672"
-          $wdkPath = "$env:TEMP\wdksetup.exe"
-          Invoke-WebRequest -Uri $wdkUrl -OutFile $wdkPath
-          Start-Process $wdkPath -ArgumentList "/features + /quiet /norestart" -Wait
+          # Usar Visual Studio Build Tools que incluyen WDK components
+          $vsUrl = "https://aka.ms/vs/17/release/vs_buildtools.exe"
+          $vsPath = "$env:TEMP\vs_buildtools.exe"
+          Invoke-WebRequest -Uri $vsUrl -OutFile $vsPath
+          Start-Process $vsPath -ArgumentList "--add Microsoft.VisualStudio.Workload.VCTools;includeRecommended --add Microsoft.VisualStudio.Component.Windows10SDK.22000 --quiet --wait --norestart" -Wait
 
       - name: Compilar buslens_filter.sys (x64 Release)
         shell: pwsh
